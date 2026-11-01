@@ -204,6 +204,9 @@ class AgentClient:
     def check_oap_collection(self):
         return self.inspect("oap-collection")
 
+    def oap_recipient_key(self):
+        return self._json("GET", "/api/oap/recipient-key")
+
     def stage_oap_collection(self, actor_id, index_sha256):
         return self._json("POST", "/api/oap-collection/stage",
                           {"actor_id": actor_id, "index_sha256": index_sha256})
@@ -542,6 +545,7 @@ def main(argv=None):
     update_actor.add_argument("description")
     update_settings = sub.add_parser("update-settings")
     update_settings.add_argument("changes", help="JSON object of supported settings changes")
+    sub.add_parser("oap-recipient-key")
     stage_collection = sub.add_parser("oap-collection-stage")
     stage_collection.add_argument("actor_id")
     stage_collection.add_argument("index_sha256")
@@ -684,6 +688,8 @@ def main(argv=None):
             result = client.update_actor(args.id, args.description)
         elif args.command == "update-settings":
             result = client.update_settings(json.loads(args.changes))
+        elif args.command == "oap-recipient-key":
+            result = client.oap_recipient_key()
         elif args.command == "oap-collection-stage":
             result = client.stage_oap_collection(args.actor_id, args.index_sha256)
         elif args.command == "delete-style":

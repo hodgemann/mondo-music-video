@@ -47,8 +47,8 @@ index and installed IDs. If the operator selects a missing actor, call
 signer, license and rider, then use the existing OAP import with explicit signer
 acceptance. The CLI equivalents are `oap-collection` and
 `oap-collection-stage ID INDEX_SHA256`. Staging does not import or overwrite.
-The original four starter actors are OAP v0.2; the newer collection may contain
-OAP v0.3 packages. Never treat a collection listing as signer acceptance.
+The bundled starter actors are OAP v0.2; the public collection is OAP v0.5. For a
+package an Agent will seal to this studio, give them `oap_recipient_key` first. Never treat a collection listing as signer acceptance.
 If the app is stopped, use the user's app environment to run
 `bash start.sh --background` from the project folder (`bash stop.sh` stops it; it refuses while a production runs), or `mondo-music-video serve`. Missing models/keys need configuration; do not silently
 switch providers or install/download model weights.

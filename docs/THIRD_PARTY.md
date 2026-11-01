@@ -5,7 +5,7 @@ under their respective licenses; this project does not relicense them.
 
 | Component | Role | License / provenance |
 | --- | --- | --- |
-| Open Actor Protocol 0.2.0 | Required actor protocol, signing, package verification and riders | MIT; pinned source commit in pyproject.toml; https://github.com/hodgemann/oap |
+| Open Actor Protocol 0.5.0 | Required actor protocol, signing, package verification and riders | MIT; pinned source commit in pyproject.toml; https://github.com/hodgemann/oap |
 | cryptography (OAP dependency) | Ed25519 identities and signatures | See upstream distribution notices; https://github.com/pyca/cryptography |
 | FastAPI / Starlette / Pydantic | Local web application | See installed dependency licenses |
 | Uvicorn | Local HTTP server | See installed dependency license |

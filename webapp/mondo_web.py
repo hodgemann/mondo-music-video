@@ -40,7 +40,7 @@ from mmv.workflow_presets import map_steps, preset_for_model, preset_path, workf
 from mmv.storage import DEFAULTS, Storage, identifier, inside, read_json, write_json
 
 LOG_FILES = ("operation.log", "writer-service.log", "comfy-service.log")
-MGL_APP_VERSION = "1.12.1"
+MGL_APP_VERSION = "1.12.2"
 WEB = Path(__file__).parent
 
 
@@ -1276,6 +1276,10 @@ def create_app(home=None, *, test_hosts=False):
             raise ValueError("OAP upload not found")
         manifest, verification = actors.package_info(path, allow_unsigned=allow_unsigned)
         return {"manifest": manifest, "verification": verification}
+
+    @app.get("/api/oap/recipient-key")
+    def oap_recipient_key():
+        return {"public_key": actors.recipient_identity(store)["public_key"]}
 
     @app.post("/api/oap/import")
     def import_package(filename: str = Form(...), actor_id: str = Form(""),

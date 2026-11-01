@@ -61,7 +61,7 @@ def _validated_index(raw):
         if (not isinstance(entry.get("name"), str) or not entry["name"] or len(entry["name"]) > 160 or
                 not isinstance(entry.get("bytes"), int) or not 0 < entry["bytes"] <= PACKAGE_LIMIT or
                 not re.fullmatch(r"[0-9a-f]{64}", entry.get("sha256", "")) or
-                entry.get("oap_version") not in ("0.2.0", "0.3.0") or
+                not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", str(entry.get("oap_version"))) or
                 not isinstance(entry.get("signer"), dict) or
                 not isinstance(entry["signer"].get("public_key"), str)):
             raise ValueError("OAP collection actor metadata is incomplete")
@@ -112,7 +112,8 @@ def stage(store, actor_id, index_sha256, *, opener=None, publish=None):
             raise ValueError("OAP collection package checksum or size does not match the checked index")
         manifest, verification = actors.package_info(temp_path)
         if (not verification.get("signature_valid") or manifest["identity"].get("actor_id") != actor_id or
-                manifest["agent"].get("public_key") != entry["signer"]["public_key"]):
+                manifest["agent"].get("public_key") != entry["signer"]["public_key"] or
+                manifest.get("oap_version") != entry["oap_version"]):
             raise ValueError("OAP collection actor identity or signer does not match the checked index")
         destination = temp_path.with_suffix(".oap")
         (publish or Path.replace)(temp_path, destination)

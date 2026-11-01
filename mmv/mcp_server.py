@@ -229,6 +229,11 @@ def create_server(base_url=None):
         """On request, check the public OAP actor collection for packages missing from this studio. No download or import."""
         return invoke(client.check_oap_collection)
 
+    @server.tool(annotations=ToolAnnotations(read_only_hint=False))
+    def oap_recipient_key() -> dict[str, Any]:
+        """This studio's public OAP recipient key (created on first use). Give it to an Agent so they can seal a package to this studio; never exposes the private half."""
+        return invoke(client.oap_recipient_key)
+
     @server.tool()
     def stage_oap_collection(actor_id: str, index_sha256: str) -> dict[str, Any]:
         """Download one selected actor from a checked collection and verify checksum, signature, identity and rider. Returns a staged upload; inspect it and obtain explicit signer acceptance before import_oap."""

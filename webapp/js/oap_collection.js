@@ -93,3 +93,7 @@ export function initOapCollection() {
     if (actor) { actor.installed = true; renderCollection(); }
   });
 }
+
+$("#oap-recipient-key-button")?.addEventListener("click", handle(async () => {
+  $("#oap-recipient-key").textContent = (await (await api("/api/oap/recipient-key")).json()).public_key;
+}));

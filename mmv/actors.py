@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import io
 import json
+import os
+import re
 import shutil
 import tempfile
 import uuid
@@ -48,6 +50,38 @@ def create_actor(store, actor_id, name, description, image_data):
     return record
 
 
+def recipient_identity(store):
+    """This studio's X25519 key: Agents seal cast-cleared packages to its public half."""
+    key_path = store.home / "recipient-identity.json"
+    identity = read_json(key_path)
+    if identity is not None:
+        return identity
+    # Publish with a hard link so a concurrent first caller cannot replace a key already handed out.
+    stage = key_path.with_name(key_path.name + "." + uuid.uuid4().hex)
+    write_json(stage, oap.generate_recipient_identity(), private=True)
+    try:
+        os.link(stage, key_path)
+    except FileExistsError:
+        pass
+    finally:
+        stage.unlink()
+    return read_json(key_path)
+
+
+def _verify(path, manifest, allow_unsigned):
+    """Check a package by its own protocol version; signer acceptance stays a separate step.
+
+    Attestations are not used by the studio and no issuers are configured, so an
+    attestation from an unknown issuer does not block an actor. Revocation lists a
+    package carries are always checked.
+    """
+    if re.fullmatch(r"0\.[0-3]\.[0-9]+", str(manifest.get("oap_version"))):
+        return oap.verify_package(str(path), require_signature=not allow_unsigned,
+                                  strict=True, known_agents=[], legacy=True)
+    return oap.verify_package(str(path), allow_untrusted=True, attestation_policy="ignore",
+                              allow_legacy_manifest=str(manifest.get("oap_version")).startswith("0.4."))
+
+
 def package_info(path, *, allow_unsigned=False):
     if path.stat().st_size > MAX_PACKAGE_BYTES:
         raise ValueError("OAP package exceeds 128 MB")
@@ -69,7 +103,7 @@ def package_info(path, *, allow_unsigned=False):
             manifest = json.loads(archive.read("manifest.json"))
         if not isinstance(manifest, dict):
             raise ValueError("OAP manifest must be an object")
-        # Bundled offline schemas accept 0.1-0.3 manifests and unknown extension keys.
+        # Bundled offline schemas accept every manifest version and unknown extension keys.
         validation = oap.validate_document(manifest)
         if not validation["ok"]:
             raise ValueError("OAP manifest failed schema validation: " + "; ".join(validation["issues"][:10]))
@@ -82,8 +116,7 @@ def package_info(path, *, allow_unsigned=False):
             raise ValueError("Invalid OAP reference sheet list")
         if not isinstance(visual.get("core_identity", ""), str):
             raise ValueError("OAP core identity must be text")
-        verification = oap.verify_package(str(path), require_signature=not allow_unsigned,
-                                          strict=True, known_agents=[])
+        verification = _verify(path, manifest, allow_unsigned)
         if not verification["ok"]:
             raise ValueError("OAP verification failed: " + "; ".join(verification["issues"]))
         if manifest.get("kind") != "oap.actor.manifest":
@@ -91,6 +124,20 @@ def package_info(path, *, allow_unsigned=False):
         return manifest, verification
     except (zipfile.BadZipFile, KeyError, TypeError, json.JSONDecodeError) as exc:
         raise ValueError("Invalid OAP package") from exc
+
+
+def _reference_bytes(store, path, manifest, sheet):
+    """A plain sheet is read directly; a sealed one is opened with this studio's key, in memory."""
+    if not sheet.get("sealed"):
+        with zipfile.ZipFile(path) as archive:
+            return archive.read(sheet["file"])
+    identity = recipient_identity(store)
+    wraps = {wrap.get("public_key") for wrap in sheet["sealed"].get("wraps", [])}
+    if identity["public_key"] not in wraps:
+        raise ValueError("This package is sealed to another studio. Ask its Agent to reissue it "
+                         "to this studio's recipient key: " + identity["public_key"])
+    return oap.open_asset_buffer(str(path), sheet["file"], identity["_private"], allow_untrusted=True,
+                                 attestation_policy="ignore", max_bytes=MAX_PACKAGE_BYTES)
 
 
 def import_actor(store, path, actor_id, *, allow_unsigned=False, accept_unknown=False):
@@ -104,15 +151,17 @@ def import_actor(store, path, actor_id, *, allow_unsigned=False, accept_unknown=
         raise ValueError("Actor already exists; imports never overwrite actors")
     with zipfile.ZipFile(path) as archive:
         present = set(archive.namelist())
-    # Portfolio and audition tiers list cast-cleared sheets by hash without including them.
+    # Portfolio and audition tiers may list a cast-cleared sheet without including it.
     sheets = [entry for entry in manifest.get("visual", {}).get("sheets", [])
-              if entry.get("role") == "reference_sheet" and entry["file"] in present]
+              if entry.get("role") == "reference_sheet" and
+              (entry["file"] in present or entry.get("sealed", {}).get("path") in present)]
     if not sheets:
         raise ValueError("No reference sheet. Import a full OAP package, not a portfolio or audition package")
     with tempfile.TemporaryDirectory(dir=target.parent) as temp:
         stage = Path(temp)
-        with zipfile.ZipFile(path) as archive:
-            clean_image(archive.read(sheets[0]["file"]), stage / "reference.png")
+        default = (manifest.get("visual", {}).get("contract") or {}).get("default_sheet")
+        sheet = next((entry for entry in sheets if entry["file"] == default), sheets[0])
+        clean_image(_reference_bytes(store, path, manifest, sheet), stage / "reference.png")
         # Preserve all original protocol metadata/assets without executing or loading them.
         shutil.copyfile(path, stage / "original.oap")
         record = {"id": actor_id, "name": manifest["identity"].get("display_name") or actor_id,
@@ -128,7 +177,11 @@ def import_actor(store, path, actor_id, *, allow_unsigned=False, accept_unknown=
 
 
 def export_actor(store, actor_id, *, tier="full", reference_clearance="cast"):
-    """Export a signed package. Audition packages omit assets cleared only for cast."""
+    """Export a signed package. Audition packages omit assets cleared only for cast.
+
+    A full export carries the reference as a plain public asset, readable by whoever
+    receives the file, as it always has; OAP 0.5 calls that a portfolio package.
+    """
     if tier not in ("full", "audition"):
         raise ValueError("Export tier must be full or audition")
     if reference_clearance not in ("cast", "audition"):
@@ -155,7 +208,8 @@ def export_actor(store, actor_id, *, tier="full", reference_clearance="cast"):
     manifest["rider"] = record["rider"]
     manifest["visual"].update(core_identity=record["description"],
                                visual_contract=record["description"],
-                               sheets=[{"file": "identity/reference.png", "clearance": reference_clearance,
+                               sheets=[{"file": "identity/reference.png",
+                                        "clearance": "public" if tier == "full" else reference_clearance,
                                         "sha256": None, "role": "reference_sheet"}])
     output = store.home / "exports" / (actor_id + "-" + uuid.uuid4().hex + ".oap")
     with tempfile.TemporaryDirectory() as temp:
@@ -163,8 +217,9 @@ def export_actor(store, actor_id, *, tier="full", reference_clearance="cast"):
         (stage / "identity").mkdir()
         shutil.copyfile(inside(directory, record["reference"]), stage / "identity/reference.png")
         write_json(stage / "manifest.json", manifest)
-        oap.package_actor(str(stage), str(output), tier=tier, sign_key=identity["_private"])
-    if not oap.verify_package(str(output), require_signature=True, strict=True)["ok"]:
+        oap.package_actor(str(stage), str(output), tier="portfolio" if tier == "full" else tier,
+                          sign_key=identity["_private"])
+    if not oap.verify_package(str(output), known_agents=[identity["public_key"]])["ok"]:
         output.unlink()
         raise ValueError("Export did not pass OAP verification")
     return output

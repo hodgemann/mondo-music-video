@@ -55,7 +55,7 @@ class BrowserTests(LiveAppFixture, unittest.TestCase):
             listing = {"source": "https://github.com/hodgemann/oap-actors", "license": "CC-BY-4.0",
                        "attribution": "Maximum Goose Laboratory", "index_sha256": "a" * 64,
                        "actors": [{"id": "human_female_baker_01", "name": "Baker", "bytes": 4064775,
-                                   "oap_version": "0.3.0", "signer": {"public_key": "test-signer"}, "installed": False}]}
+                                   "oap_version": "0.5.0", "signer": {"public_key": "test-signer"}, "installed": False}]}
             staged = {"filename": "checked.oap", "manifest": {
                 "identity": {"actor_id": "human_female_baker_01", "display_name": "Baker"},
                 "agent": {"public_key": "test-signer"}, "rider": {"content": {"violence": "action"}}},
@@ -69,7 +69,7 @@ class BrowserTests(LiveAppFixture, unittest.TestCase):
                 page.locator('.nav[data-panel="actors"]').click()
                 page.locator('#oap-collection-fold summary').click()
                 page.locator('#check-oap-collection').click()
-                expect(page.locator('#oap-collection-list')).to_contain_text('OAP 0.3.0')
+                expect(page.locator('#oap-collection-list')).to_contain_text('OAP 0.5.0')
                 self.assertEqual(requests, ['check'])
                 page.locator('#oap-collection-list button').click()
                 expect(page.locator('#oap-report-card')).to_contain_text('test-signer')
@@ -792,7 +792,7 @@ class BrowserTests(LiveAppFixture, unittest.TestCase):
             done = threading.Event()
             try:
                 page.goto(self.url)
-                expect(page.locator('#version')).to_have_text('1.12.1')
+                expect(page.locator('#version')).to_have_text('1.12.2')
                 page.evaluate("""async () => {
                   const m = await import('/js/production.js');
                   m.renderServices({vision_quality: {activity: 'offline', available: false, has_launch: true,
@@ -1694,7 +1694,7 @@ class BrowserTests(LiveAppFixture, unittest.TestCase):
             page.on('pageerror', lambda err: errors.append(str(err)))
             try:
                 page.goto(self.url)
-                expect(page.locator('#version')).to_have_text('1.12.1')
+                expect(page.locator('#version')).to_have_text('1.12.2')
                 page.wait_for_function('() => document.querySelector("#video-form .song-input").onchange !== null')
                 page.locator('#video-form select[name=backend]').select_option('comfy_sdk_h3')
                 page.locator('#video-form .song-input').set_input_files(str(self.song))

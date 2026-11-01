@@ -334,7 +334,7 @@ def test_mcp_discovery_documents_vision_flag():
             client.return_value.preview.return_value = {'id': 'reviewed-quote'}
             server = create_server()
             tools = await server.list_tools()
-            assert len(tools) == 74
+            assert len(tools) == 75
             preview = next(t for t in tools if t.name == 'preview_production')
             assert 'vision_quality_check' in preview.description
             assert 'paid re-renders require consent' in preview.description

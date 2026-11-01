@@ -1,6 +1,6 @@
 # Mondo Music Video
 
-**Version 1.12.1** · MAXIMUM GOOSE LABORATORY · Apache License 2.0
+**Version 1.12.2** · MAXIMUM GOOSE LABORATORY · Apache License 2.0
 
 Turn a song into a music video. Beat-aware shot planning, LLM-written prompts, local or
 hosted rendering, actors that dance, lip-sync and play instruments, Worlds, storyboards,
@@ -285,8 +285,8 @@ confirmation and are never retried automatically.
 
 The Actors tab imports and exports OAP packages, verifies their signatures and
 checks actor riders. No account, reporting or public actor sharing is required.
-With Open Actor Protocol 0.3, imported manifests are also schema-validated
-offline, local actors can be exported as audition packages that leave out
+MMV reads Open Actor Protocol 0.2 to 0.5 packages, including packages sealed to
+this studio's recipient key. Imported manifests are schema-validated offline, local actors can be exported as audition packages that leave out
 cast-only assets, and role agreements record a casting between this studio
 (Director) and an actor's Agent, each signing with their own key.
 
@@ -300,7 +300,7 @@ from their saved prompts and clips.
 
 ## Agent operation
 
-The v1.12.1 MCP server has 74 tools, including a production queue (`queue_production`, `start_queue`, `read_queue`), OPP package inspection/import/sheet selection, prompt-retry previews, API profile add/select/remove,
+The v1.12.2 MCP server has 75 tools, including a production queue (`queue_production`, `start_queue`, `read_queue`), OPP package inspection/import/sheet selection, prompt-retry previews, API profile add/select/remove,
 model/service preferences, starter installation, confirmed actor/style
 deletion, audition exports, OAP role agreements, musical score reading, lyric captioning of finished videos, visual vocabulary presets,
 world editing, passage prompts and versions (`rewrite_prompt`, `edit_prompt`, `select_prompt_take`), clip takes with seeds

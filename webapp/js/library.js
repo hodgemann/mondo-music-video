@@ -65,7 +65,7 @@ const actorCardHtml = (actor) => {
     <label class="check audition-export" title="Only check this if the reference is a cleaned or watermarked take you are willing to share with casting directors">
       <input type="checkbox" class="audition-cleared-cb"> Reference is cleared for auditions
     </label>
-    <button type="button" class="quiet audition-button" data-action="export-audition" title="Export a signed audition package for ${escName}; cast-only assets are listed by hash but left out">Export audition package</button>
+    <button type="button" class="quiet audition-button" data-action="export-audition" title="Export a signed audition package for ${escName}; cast-only assets are left out">Export audition package</button>
   `;
   return `
     <article class="card" data-id="${escId}" data-name="${escName}">
@@ -296,7 +296,9 @@ export function renderOapReportCard(report, allowUnsigned) {
     ["Signing public key", signed ? (manifest.agent?.public_key || "Not supplied") : "Unsigned"],
     ["Visual identity", manifest.visual?.core_identity || "Not specified"],
     ["Ratings ceiling", ratings],
-    ["Commercial rider", rider.commercial ? JSON.stringify(rider.commercial, null, 2) : "Not specified in package"]
+    ["Commercial rider", rider.commercial ? JSON.stringify(rider.commercial, null, 2) : "Not specified in package"],
+    ["OAP version", manifest.oap_version || "Not specified"],
+    ...(verification.warnings?.length ? [["Warnings", verification.warnings.join("; ")]] : [])
   ];
 
   const gridHtml = rows
@@ -458,7 +460,7 @@ export function initLibraryForms() {
       const isCleared = Boolean(clearedCb?.checked);
       const query = new URLSearchParams({ tier: "audition", reference_clearance: isCleared ? "audition" : "cast" });
       await saveDownload(await api(`/api/actors/${encodeURIComponent(id)}/export?${query}`, { method: "POST" }), id + "-audition.oap");
-      notice(isCleared ? "Audition package exported with the audition-cleared reference." : "Audition package exported. The cast-only reference is listed by hash but not included.");
+      notice(isCleared ? "Audition package exported with the audition-cleared reference." : "Audition package exported. The cast-only reference is not included.");
     } else if (action === "delete-actor") {
       if (!window.confirm(`Delete actor “${name}”, their reference image and imported package from this machine? Export first if you want a backup. Completed videos and earlier exports are kept.`)) return;
       await api(`/api/actors/${encodeURIComponent(id)}`, { method: "DELETE" });

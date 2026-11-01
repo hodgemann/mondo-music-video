@@ -19,6 +19,7 @@ secrets.json
 api-profiles.json
 removed-assets.json
 signing-identity.json
+recipient-identity.json
 settings.json
 session.lock
 operation.json

@@ -1,5 +1,15 @@
 # Releases
 
+## 1.12.2 — OAP 0.5 actors
+
+- **The public actor collection works again.** Actors & Props now reads the OAP 0.5 packages in the public collection. A future protocol version in the index no longer stops the list loading; each package is checked when you select it.
+- **Older actors keep working.** The four bundled starters and actors you already imported stay as they are, and OAP 0.2 and 0.3 packages still import. Existing role agreements keep their original signatures.
+- **Sealed packages.** An actor sealed to this studio now imports. **Show this studio's recipient key** gives you the public key to send the Agent (CLI `oap-recipient-key`, MCP `oap_recipient_key`). The decrypted reference is stored in the actor's folder like any other, because renderers need it.
+- **Exports use OAP 0.5.** A full export still carries a plain reference readable by whoever receives the file, and is now an OAP 0.5 portfolio package. Audition packages no longer list a hash for a left-out cast-only reference. Exporting a sealed package is not offered yet.
+- **Revocation and attestations.** Revocation lists inside a package are checked, and a revoked signer is refused. MMV does not use attestations yet, so it does not check them and they do not block an actor.
+- **Guide updated.** The OAP guide now explains sealed packages and revocation, and that a full export's reference is not encrypted.
+- Now built on OAP 0.5.0, which adds PyNaCl as a dependency.
+
 ## 1.12.1 — Steer a new prompt; clearer Styles; stems wait for the GPU
 
 Credit: [hellonearthis](https://github.com/hellonearthis) for fork commit `4d4fb16`, reviewed at exact head `aa1e06b`.

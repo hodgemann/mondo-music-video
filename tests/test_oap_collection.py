@@ -72,3 +72,15 @@ def test_collection_index_rejects_unsafe_paths(tmp_path):
     opener.responses[oap_collection.RAW + "/index.json"] = json.dumps(data).encode()
     with pytest.raises(ValueError, match="unsafe actor paths"):
         oap_collection.check(store, opener=opener)
+
+
+def test_future_protocol_version_does_not_break_the_index(tmp_path):
+    store, opener = fixture_collection(tmp_path)
+    url = oap_collection.RAW + "/index.json"
+    index = json.loads(opener.responses[url])
+    index["actors"][0]["oap_version"] = "0.5.0"
+    opener.responses[url] = json.dumps(index).encode()
+    checked = oap_collection.check(store, opener=opener)
+    assert checked["actors"][0]["oap_version"] == "0.5.0"
+    with pytest.raises(ValueError, match="does not match the checked index"):
+        oap_collection.stage(store, "animal_pig", checked["index_sha256"], opener=opener)

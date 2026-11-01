@@ -1,4 +1,4 @@
-"""OAP 0.3 role agreements: this studio casts as Director; Agents countersign.
+"""OAP role agreements: this studio casts as Director; Agents countersign.
 
 Each agreement stores the exact actor manifest and casting call it is bound to.
 Signature validity is reported separately from signer trust, which the operator

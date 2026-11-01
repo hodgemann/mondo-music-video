@@ -1,4 +1,4 @@
-"""OAP 0.3 integration: schema validation, audition exports and role agreements."""
+"""OAP integration: schema validation, audition exports and role agreements."""
 import io
 import json
 import tempfile
@@ -41,7 +41,7 @@ class OAPv03Tests(unittest.TestCase):
         manifest["identity"]["did"] = identity["did"] + "#red"
         manifest["agent"].update(name="Outside Agency", public_key=identity["public_key"])
         manifest["rider"].update(rider or {})
-        manifest["visual"]["sheets"] = [{"file": "identity/red.png", "clearance": "cast",
+        manifest["visual"]["sheets"] = [{"file": "identity/red.png", "clearance": "public",
                                          "sha256": None, "role": "reference_sheet"}]
         with tempfile.TemporaryDirectory() as temp:
             stage = Path(temp)
@@ -49,7 +49,7 @@ class OAPv03Tests(unittest.TestCase):
             (stage / "identity/red.png").write_bytes(picture())
             (stage / "manifest.json").write_text(json.dumps(manifest))
             output = stage / "red.oap"
-            oap.package_actor(str(stage), str(output), tier="full", sign_key=identity["_private"])
+            oap.package_actor(str(stage), str(output), tier="portfolio", sign_key=identity["_private"])
             uploaded = self.client.post("/api/upload/oap", files={"file": ("red.oap", output.read_bytes())}).json()["file"]
         self.client.post("/api/oap/import", data={"filename": uploaded, "accept_unknown": "true"}).raise_for_status()
         return identity
@@ -71,15 +71,15 @@ class OAPv03Tests(unittest.TestCase):
         with zipfile.ZipFile(io.BytesIO(audition.content)) as archive:
             self.assertNotIn("identity/reference.png", archive.namelist())
             manifest = json.loads(archive.read("manifest.json"))
-        self.assertEqual(manifest["oap_version"], "0.3.0")
+        self.assertEqual(manifest["oap_version"], "0.5.0")
         sheet = manifest["visual"]["sheets"][0]
         self.assertEqual(sheet["clearance"], "cast")
-        self.assertRegex(sheet["sha256"], "^[0-9a-f]{64}$")
+        self.assertIsNone(sheet["sha256"])
         with zipfile.ZipFile(io.BytesIO(cleared.content)) as archive:
             self.assertIn("identity/reference.png", archive.namelist())
         path = self.home / "audition.oap"
         path.write_bytes(audition.content)
-        self.assertTrue(oap.verify_package(str(path), require_signature=True, strict=True)["ok"])
+        self.assertTrue(oap.verify_package(str(path), allow_untrusted=True)["ok"])
         with self.assertRaisesRegex(ValueError, "No reference sheet"):
             actors.import_actor(self.store, path, "blue_audition", accept_unknown=True)
         self.assertEqual(self.client.post("/api/actors/blue/export", params={"tier": "portfolio"}).status_code, 422)

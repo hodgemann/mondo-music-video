@@ -148,7 +148,7 @@ To toggle Component Labeling Mode in the web interface:
 - **ID**: `role-agreements-card`
 - **Used in**: Bottom of `panel-actors`
 - **Code**: `webapp/index.html`, `webapp/js/agreements.js`
-- **Design rules**: OAP 0.3 contract drafting form (offer, currency, character, role description, ratings check) and countersigned agreement importer.
+- **Design rules**: OAP 0.5 contract drafting form (offer, currency, character, role description, ratings check) and countersigned agreement importer.
 
 ---
 
