@@ -24,10 +24,28 @@ For example:
 - **Cast** supplies recurring identities, reference slots and content riders.
   Loose reference images also occupy reference slots in this engine; do not
   assume they are guaranteed to be used only for mood or lighting.
-- **Casting policy**, **Ensemble mode** and **On-screen count** govern assignment
-  and shared shots. Selecting several actors alone does not require shared shots.
+- **Reference policy**, **Casting policy**, **Ensemble mode** and **On-screen count**
+  govern assignment, reference image binding, and shared shots. Selecting several
+  actors alone does not require shared shots or eliminate uncast background figures.
 - **Visual vocabulary** keeps the full current pool or selects the optional
   reduced flash/strobe cues. Neither choice certifies the generated output.
+
+## Character consistency and eliminating random subjects
+
+When using character sheets or additional reference images, you can eliminate unwanted one-off strangers and enforce strict cast continuity across the production:
+
+- **Reference policy (`ref_policy`)**:
+  - `fragmentation`: Wires reference sheets only to peak-energy passages. Lower-energy, multi-scene, or intro passages carry zero reference slots, prompting the AI writer to generate uncast, anonymous figures (e.g. "a farrier in an evidence locker").
+  - `single_subject`: Wires reference sheets to both fragmentation and standard single-subject passages.
+  - `all`: **Wired across every passage in the entire video.** The writer contract strictly mandates that the assigned cast member overrides generic subject rules and appears in every shot of that passage. Use this to completely eliminate uncast strangers.
+- **Cast assignment (`casting_policy`)**:
+  - `section`: Holds the same character through an entire musical section (verse or chorus) before switching, providing coherent narrative progression.
+  - `rotate`: Strict sequential round-robin alternation between characters passage-by-passage.
+  - `random`: Seeded fair random selection across passages.
+- **Ensemble mode & Actors on screen (`ensemble_mode`, `on_screen`)**:
+  - `off`: Exactly one character at a time per passage.
+  - `always`: Guarantees that the requested on-screen count (e.g. 2) share every eligible frame.
+  - `mixed`: Solos during quiet sections, ensemble during peaks.
 
 ## What stays under planner control
 
@@ -365,3 +383,94 @@ The **Conceptual theme** input (e.g. *"nostalgia"*, *"cybernetic isolation"*, *"
 | **Characters morphing or changing clothing** | Casting | Identity bleed across parallel subjects or missing OAP actor assignment. | Assign an OAP actor reference sheet; ensure **"One dominant subject per shot"** rule is observed. |
 | **Cuts feel off-beat or disconnected from song** | Editorial | Incorrect bars-per-phrase grid or non-standard time signature. | Adjust **Bars per phrase** (try 2 or 4 bars) or re-run beat detection with adjusted sensitivity. |
 | **Scenes look too clean, sterile, or CGI** | Production Design | Default clean grading without film stock or grain directives. | Harvest a style from moody cinematic reference stills or specify 35mm grain, lens distortion, and bloom in Visual Direction. |
+
+---
+
+## 6. Power-User Production Tips & Studio Best Practices
+
+### 6.1 Passage Takes & Single-Clip Rerolls (Lossless Direct Assembly)
+
+In professional music video direction, you rarely scrap an entire reel when nine out of ten shots are great and only one has an awkward camera turn or artifact. Mondo’s **Passage Takes** workflow lets you fine-tune and reroll individual clips without re-rendering the whole song:
+
+1. **Open the Edit View**: On any finished `local_h3` production, navigate to the production card and click **Edit Passages**.
+2. **Review Individual Passages**: Each passage card presents the prompt on the left (character count, validated against renderer limits) and the rendered clip take on the right.
+3. **Reroll Just One Clip**:
+   - Enter a **Next seed** (or press **Random**) and click **🎬 Render Clip**. Only that specific segment runs through your local GPU.
+   - Or click **✍️ Write new prompt** to regenerate that passage’s narrative prompt with fresh vocabulary draws, or **✏️ Edit prompt** to manually tweak lighting, camera motion, or action. Hand edits pass through the same Mondo quality rules and Laya validator to guarantee visual consistency.
+4. **Reassemble the Master Losslessly**:
+   - Use the take selector to preview and pick your favorite takes for each passage.
+   - Click **Re-encode Final Video with Selected Takes**.
+   - Mondo reconstructs the entire final video directly from the original renderer clips in a single FFmpeg encode, applying subliminal flashes and burned lyric captions inside that assembly graph. This prevents generational loss from recompressing finished MP4s, and preserves earlier video iterations in the Final Video Version dropdown.
+
+### 6.2 The "Two Seeds" Mechanic (Variation Seed vs. Render Seed)
+
+Mondo separates narrative composition from diffusion rendering using two distinct random seeds:
+
+* **Variation Seed (`variation_seed`) — The Narrative & Editorial Blueprint**:
+  - Dictates which visual vocabulary items are drawn from `vocab.json`.
+  - Determines shot breakdown, camera progression, metaphorical motifs, and actor casting across musical sections.
+  - Controls the text prompts generated by the LLM writer.
+* **Render Seed (`seed` / Take Seed) — The Diffusion Noise Generator**:
+  - Dictates the latent noise seed passed to the video diffusion renderer (e.g. MiniMax H3 via ComfyUI).
+  - Controls physical micro-details: exact facial expressions, cloth folds, hair physics, volumetric lighting, and particulate drift.
+
+> [!TIP]
+> **Director's Workflow:**
+> If you love the story arc, shot rhythm, and visual symbolism of a production but want to see different stylistic or physical interpretations, **keep the Variation Seed locked** and change the Render Seed (or reroll individual passage takes). Conversely, if the visual physics look solid but you want completely fresh scenes and narrative metaphors, change the **Variation Seed**.
+
+### 6.3 Lip-Sync & Approved Singing (Overriding Sealed Lips)
+
+By default, Mondo enforces **Silent Mouths** (sealed lips) across all passages. This intentional constraint eliminates unnatural mouth spasms, phantom mumbles, and the uncanny-valley morphing common in open-domain video models when unprompted speech occurs.
+
+To produce authentic, synchronized performance shots without phantom glitches:
+
+1. **Provide Song Lyrics**: Paste the lyrics into the **Lyrics** field on the Music Video panel.
+2. **Assign a Singer**: In actor casting, designate a character as the lead singer/vocalist, or choose **Approved Singing** under Actor Coaching.
+3. **Protected Scheme Validation**:
+   - Mondo's protected scheme strictly confines singing prompts to designated musical singing passages and formats them with approved phonetic cadence phrasing.
+   - During guitar solos, drum fills, instrumental interludes, and non-singing verses, Mondo automatically reverts to sealed-lips instructions, keeping actor facial performance grounded and realistic.
+
+### 6.4 Reference Sheet Geometry & Neutral Backgrounds for MiniMax H3
+
+Diffusion video models such as MiniMax H3 rely on image cross-attention to inject character identity into dynamic scenes. The cleanliness and composition of your actor reference sheets directly affect how well the character integrates into the video:
+
+* **Use Neutral, Uncluttered Backgrounds**:
+  - Avoid complex scenic backgrounds in your actor portrait reference images (studio grey `#808080`, pure white `#FFFFFF`, or transparent work best).
+  - Background objects in reference sheets can unintentionally bleed into video scenes (e.g., a bookshelf or window in a portrait can cause unwanted furniture or window frames to spawn in an outdoor desert or sci-fi shot).
+* **Composition & Turn**:
+  - A crisp waist-up or three-quarter turn with clear facial features, defined jawline, and distinctive clothing textures provides the best cross-attention anchor.
+  - For vertical (9:16) videos, use vertical or waist-up references to avoid aspect-ratio stretching.
+* **Automatic Native Tag Normalization**:
+  - MiniMax H3 natively binds character conditions via numbered tag notation (e.g., `<Subject 1>`, `<Subject 2>`).
+  - Mondo automatically normalizes reference tags and prompt names so your cast members connect directly to H3's subject cross-attention slots without manual prompt hacking.
+
+### 6.5 Resolution Density & Aspect Scaling for Social vs. Cinema
+
+Optimize your video dimensions and computational density for your target exhibition platform:
+
+* **9:16 Vertical Video (Social Platforms)**:
+  - Select **9:16** for TikTok, Instagram Reels, and YouTube Shorts.
+  - Pair with waist-up or vertical character references so subjects fill the vertical framing naturally without awkward wide-angle cropping.
+* **2.39:1 / 21:9 Anamorphic Cinemascope (Widescreen Cinema)**:
+  - Select **21:9** or **2.39:1** for theatrical aspect ratios, sweeping landscapes, and widescreen anamorphic lens characteristics.
+* **VRAM and Speed Tuning (`megapixels`)**:
+  - Use `0.9`–`1.0` megapixel targets (~720p equivalent) for rapid storyboard iteration and lower VRAM consumption on consumer GPUs.
+  - Scale up to full 1080p density for final mastering once your shot selection and takes are locked.
+
+### 6.6 Prompt Caching vs. Fresh Writing (`reuse_prompts`)
+
+Writing comprehensive, Laya-validated prompts for an entire song takes time and (when using API writer models such as Claude, OpenAI, or Gemini) consumes API tokens.
+
+* **When iterating on visual looks, lighting LUTs, or render seeds**: Enable **Reuse Prompts / Cached Prompts**. Mondo skips the writer stage entirely, pulling the approved passage prompts from the previous run and sending them directly to the video renderer.
+* **When restructuring song cuts, lyrics, or core narrative arcs**: Leave prompt caching disabled so the writer generates fresh, musically aligned prompts adapted to your changes.
+
+### 6.7 Blending Multi-Thematic Worlds with Guided Visual Anchors
+
+The **Worlds** panel enables rich environmental design beyond single-genre stereotypes. Rather than choosing strictly between a conventional cyberpunk alley or a rustic forest, you can create hybrid visual universes:
+
+* **Architectural Anchor + Atmospheric Modifier**:
+  - In **Visual Direction**, combine architectural permanence with dynamic environmental physics:
+    > *"Brutalist monolithic concrete towers overgrown with luminescent bioluminescent vines, bathed in continuous monsoon rain and amber sodium-vapor floodlights."*
+* **World Presets & Guided Sliders**:
+  - Use the World editor to define spatial consistency: interior vs. exterior transitions, material palettes (e.g. brushed titanium, wet asphalt, rusted corrugated iron), and dominant color temperatures.
+  - The writer LLM weaves these environmental anchors into every passage prompt, while the vocabulary engine injects varied micro-mechanisms (steam vents, puddles, electrical arcs) to prevent visual repetition across takes.

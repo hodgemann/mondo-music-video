@@ -209,6 +209,11 @@ def create_server(base_url=None):
         """Cancel the active operation when requested; already submitted remote work may still be billed."""
         return invoke(client.cancel)
 
+    @server.tool()
+    def reset_operation(purge_run: bool = False, clear_log: bool = False) -> dict[str, Any]:
+        """Reset an interrupted, failed, or cancelled operation banner back to ready. Optionally purge the incomplete run folder and clear the operation log."""
+        return invoke(client.reset_operation, purge_run=purge_run, clear_log=clear_log)
+
     @server.tool(annotations=ToolAnnotations(read_only_hint=True))
     def read_operation_log(run_id: str) -> dict[str, Any]:
         """Read the recent log for a production, including diagnostic context after interruption."""

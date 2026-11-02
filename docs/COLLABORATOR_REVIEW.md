@@ -1,5 +1,15 @@
 # Collaborator review record
 
+## Fork `0d29dcb` integrated (release 1.12.3, 2026-11-02)
+
+Previous reviewed head `7781545`. New commits by [hellonearthis](https://github.com/hellonearthis): `5c5b5b6` (narrative acts), `5cae552` (Dismiss / Purge & Start Fresh), `9853212` (H3 reference and subject tag normalizer), `20e62ee` and `0d29dcb` (studio direction guides). Reviewed in an isolated clone and a read-only Codex pass (`gpt-6.1-sol`, low effort; the model is the CLI request, not a confirmed answer).
+
+- **Narrative acts: adopted.** Opt-in by nature: only presets or requests that carry acts change anything. Fixed: saving a preset from the GUI replaced the whole file and dropped its acts; a save that does not mention acts now keeps them. Remaining caveat: within a passage only setting, costume and subject type are held, so an act can vary mechanism or tonal register between shots where a plain passage shares them. Not verified on a real render.
+- **Dismiss / Purge: adopted with a fix.** The fork's endpoint calls `Jobs.reset()`, which exists in the fork's `mmv/jobs.py` but not here, so reset would have raised after the purge had already run. `Jobs.reset()` is added. Purge only checked for `output.json`; it now also keeps any run with an assembly source or renderer work (clips, request receipts).
+- **H3 tag normalizer: adapted, off by default.** It rewrites the prompt at render time for every cast video, after the prompt checks, which the owner's defaults do not allow silently. It is now the `h3_tag_normalizer` setting (default off, agent-visible) and the cast is only passed when it is on, so resume fingerprints for submitted Comfy-SDK passages are unchanged by default. Fixed in the function: the colour-word guard never matched (every colour has three or more letters), a shorter actor name could consume part of a longer one ("Ann" / "Ann Marie"), and any `<Picture N>` anywhere counted as a correct binding. The renderer's text still differs from the saved, checked prompt when on; that is why it stays opt-in.
+- **Docs and example preset: adopted**, with the normalizer described as optional. `vocab-worlds.js` brace fix: already present here. Fork version labels 1.12.3–1.12.5 map to our single 1.12.3.
+- No paid or GPU work, no protected-scheme files touched (`protected_scheme.check()` is clean).
+
 ## Fork `7781545` reviewed (documentation integration, 2026-11-01)
 
 The task-start check found exact head `77815455c9bab70f6619fe8d2072cd8661631e20`. Since last reviewed head `aa1e06b`, the new authored commit is `6ee7add8403ba2dfff888cb36cf2fae5b5f5a675` by [hellonearthis](https://github.com/hellonearthis): a production-queue OpenSpec feature, glossary and behavior-report entries, and five executable checks. Merge `7781545` also carries upstream `0a1bdfc` and older fork-side differences; it was reviewed in an isolated clone, not merged into this checkout's history. This is a documentation and test integration, so application version 1.12.2 stays unchanged.

@@ -162,7 +162,7 @@ class AgentTests(LiveAppFixture, unittest.TestCase):
         result = subprocess.run([sys.executable, "-m", "mmv.agent", "version"], env=env,
                                 capture_output=True, text=True, timeout=10)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(json.loads(result.stdout)["version"], "1.12.2")
+        self.assertEqual(json.loads(result.stdout)["version"], "1.12.3")
         result = subprocess.run([sys.executable, "-m", "mmv.agent", "start", "unknown"], env=env,
                                 capture_output=True, text=True, timeout=10)
         self.assertNotEqual(result.returncode, 0)
@@ -196,7 +196,7 @@ class AgentTests(LiveAppFixture, unittest.TestCase):
 
     def test_proxy_environment_is_not_used_for_local_calls(self):
         with patch.dict(os.environ, {"HTTP_PROXY": "http://example.invalid:1", "NO_PROXY": "", "no_proxy": ""}):
-            self.assertEqual(AgentClient(self.url).inspect("version")["version"], "1.12.2")
+            self.assertEqual(AgentClient(self.url).inspect("version")["version"], "1.12.3")
 
     def test_world_management_guards_and_cli(self):
         ledger = {"id": "salt", "name": "Salt Archive", "core_laws": ["The record outlives the person"],
@@ -319,7 +319,7 @@ class MCPTests(LiveAppFixture, unittest.TestCase):
             async with Client(stdio_client(transport)) as client:
                 tools = await client.list_tools()
                 names = {tool.name for tool in tools.tools}
-                self.assertEqual(len(names), 75)
+                self.assertEqual(len(names), 76)
                 self.assertTrue({'check_oap_collection', 'stage_oap_collection', 'oap_recipient_key'} <= names)
                 self.assertTrue({'create_role_agreement', 'sign_role_agreement', 'verify_role_agreement',
                     'export_role_agreement', 'import_role_agreement', 'read_music_score', 'read_output_prompts'} <= names)
@@ -360,7 +360,7 @@ class MCPTests(LiveAppFixture, unittest.TestCase):
                 self.assertNotIn("set_key", names)
                 result = await client.call_tool("inspect_studio", {"kind": "version"})
                 self.assertFalse(result.is_error)
-                self.assertEqual(result.structured_content["data"]["version"], "1.12.2")
+                self.assertEqual(result.structured_content["data"]["version"], "1.12.3")
                 result = await client.call_tool("start_production", {"quote_id": "fabricated", "consent": False})
                 self.assertTrue(result.is_error)
                 self.assertIn("authorization", result.content[0].text)

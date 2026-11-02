@@ -438,9 +438,9 @@ class PublicAppTests(unittest.TestCase):
         import tomllib
         root = Path(__file__).resolve().parents[1]
         project = tomllib.loads((root / "pyproject.toml").read_text())
-        self.assertEqual(api_version()["version"], "1.12.2")
+        self.assertEqual(api_version()["version"], "1.12.3")
         self.assertEqual(project["project"]["version"], MGL_APP_VERSION)
-        self.assertIn("1.12.2", (root / "README.md").read_text())
+        self.assertIn("1.12.3", (root / "README.md").read_text())
         self.assertEqual(self.client.get("/api/version").json(), api_version())
 
     def test_quick_start_button_dialog_and_endpoint(self):
@@ -1790,6 +1790,50 @@ class PublicAppTests(unittest.TestCase):
         self.assertEqual(self.wait()["state"],"cancelled")
         self.assertTrue(any(path=="/queue" and body=={"delete":["local-test"]} for path,body in MockService.requests))
 
+    def test_reset_operation_dismiss_and_purge(self):
+        from mmv.storage import write_json
+        run_dir = self.home / "runs" / "test-interrupted-run"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        write_json(run_dir / "request.json", {"kind": "video"})
+        (self.home / "studio.log").write_text("sample log", encoding="utf-8")
+
+        self.app.state.jobs.last.update(id="test-interrupted-run", state="interrupted", message="Application stopped")
+        write_json(self.app.state.jobs.status_path, self.app.state.jobs.last)
+
+        res = self.client.post("/api/operation/reset", json={"purge_run": False, "clear_log": False})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json()["state"], "idle")
+        self.assertTrue(run_dir.is_dir())
+        self.assertEqual((self.home / "studio.log").read_text("utf-8"), "sample log")
+
+        self.app.state.jobs.last.update(id="test-interrupted-run", state="interrupted")
+        write_json(self.app.state.jobs.status_path, self.app.state.jobs.last)
+        res2 = self.client.post("/api/operation/reset", json={"purge_run": True, "clear_log": True})
+        self.assertEqual(res2.status_code, 200)
+        self.assertEqual(res2.json()["state"], "idle")
+        self.assertFalse(run_dir.exists())
+        self.assertEqual((self.home / "studio.log").read_text("utf-8"), "")
+
+    def test_reset_operation_purge_keeps_runs_with_renders(self):
+        from mmv.storage import write_json
+        run_dir = self.home / "runs" / "paid-run"
+        (run_dir / "renders" / "s1").mkdir(parents=True)
+        write_json(run_dir / "renders" / "s1" / "comfy-request.json", {"prompt_id": "abc"})
+        self.app.state.jobs.last.update(id="paid-run", state="failed")
+        res = self.client.post("/api/operation/reset", json={"purge_run": True})
+        self.assertEqual(res.json()["state"], "idle")
+        self.assertTrue((run_dir / "renders" / "s1" / "comfy-request.json").is_file())
+
+    def test_saving_a_preset_without_acts_keeps_its_acts(self):
+        from mmv.storage import write_json
+        path = self.home / "vocabularies" / "acts_demo.json"
+        path.parent.mkdir(exist_ok=True)
+        acts = [{"act": 1, "title": "Dawn", "span": None, "tables": {}}]
+        write_json(path, {"id": "acts_demo", "name": "Acts", "acts": acts})
+        self.client.post("/api/vocabularies", json={"id": "acts_demo", "name": "Acts renamed"}).raise_for_status()
+        saved = self.client.get("/api/vocabularies").json()
+        self.assertEqual([v["acts"] for v in saved if v["id"] == "acts_demo"], [acts])
+
     def test_stale_preview_rejected(self):
         quote = self.client.post("/api/quote", json={"song": self.song_upload()}).json()
         settings = self.store.settings()
@@ -2395,6 +2439,61 @@ class UtilityTests(unittest.TestCase):
             self.assertIn("markdown", guide_data)
             self.assertIn("Visual Vocabulary", guide_data["markdown"])
             self.assertIn("title", guide_data)
+
+    def test_narrative_acts_preset_persistence_and_api(self):
+        with tempfile.TemporaryDirectory() as temp:
+            store = Storage(temp)
+            client = TestClient(create_app(store.home, test_hosts=True))
+            preset_payload = {
+                "id": "escape_arc",
+                "name": "The Great Escape",
+                "description": "3-act narrative palette",
+                "base_profile": "full",
+                "tables": {},
+                "acts": [
+                    {
+                        "act": 1,
+                        "title": "Confinement",
+                        "span": [0.0, 0.35],
+                        "tables": {
+                            "settings": {"mode": "replace", "add": ["cell", "archive"], "exclude": []}
+                        }
+                    },
+                    {
+                        "act": 2,
+                        "title": "Transit",
+                        "span": [0.35, 0.70],
+                        "tables": {
+                            "settings": {"mode": "replace", "add": ["tunnel", "platform"], "exclude": []}
+                        }
+                    },
+                    {
+                        "act": 3,
+                        "title": "Horizon",
+                        "span": [0.70, 1.0],
+                        "tables": {
+                            "settings": {"mode": "replace", "add": ["salt flat", "open sea"], "exclude": []}
+                        }
+                    }
+                ]
+            }
+            res = client.post("/api/vocabularies", json=preset_payload)
+            self.assertEqual(res.status_code, 200)
+            data = res.json()
+            self.assertEqual(len(data.get("acts", [])), 3)
+            self.assertEqual(data["acts"][0]["title"], "Confinement")
+
+            # Check GET /api/vocabularies returns the acts
+            res = client.get("/api/vocabularies")
+            self.assertEqual(res.status_code, 200)
+            vocabs = res.json()
+            self.assertEqual(len(vocabs), 1)
+            self.assertEqual(len(vocabs[0].get("acts", [])), 3)
+
+            # Check store.vocabulary returns acts
+            saved = store.vocabulary("escape_arc")
+            self.assertEqual(len(saved.get("acts", [])), 3)
+            self.assertEqual(saved["acts"][2]["title"], "Horizon")
 
     def test_project_vocab_random_key_persistence(self):
         with tempfile.TemporaryDirectory() as temp:

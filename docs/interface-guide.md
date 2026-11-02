@@ -79,25 +79,25 @@ To toggle Component Labeling Mode in the web interface:
 - **ID**: `director-fold-pacing`
 - **Used in**: Inside `director-control-room`
 - **Code**: `webapp/index.html`
-- **Design rules**: Configures beats per bar, bars per phrase, variation seed (with reroll button), conceptual theme, and song lyrics / flavor text.
+- **Design rules**: Configures beats per bar, bars per phrase, variation seed (with reroll button; governs narrative blueprints and vocabulary draws while the render seed governs diffusion noise), conceptual theme, and song lyrics / flavor text (which unlock approved singing during performance passages).
 
 #### Camera Policies Fold
 - **ID**: `director-fold-camera`
 - **Used in**: Inside `director-control-room`
 - **Code**: `webapp/index.html`
-- **Design rules**: Configures reference policy (all shots, single-subject, fragmentation), casting rotation policy, ensemble mode, and maximum simultaneous actors on screen.
+- **Design rules**: Configures reference policy (`all` to eliminate random strangers across all montage types, `single_subject`, or `fragmentation`), casting policy (`section` to hold character focus through a musical section, `rotate`, or `random`), ensemble mode (`off`, `mixed`, `always`), and maximum simultaneous actors on screen.
 
 #### Video Format & Render Engine Fold
 - **ID**: `director-fold-format`
 - **Used in**: Inside `director-control-room`
 - **Code**: `webapp/index.html`
-- **Design rules**: Configures framing aspect ratio, local render megapixels, video generation backend (Renderer), and render resolution.
+- **Design rules**: Configures framing aspect ratio (e.g. 16:9, 9:16 vertical for reels/shorts, 21:9 anamorphic cinemascope), local render megapixels (0.9–1.0 MP for fast previews up to 1080p master density), video generation backend (Renderer), and render resolution.
 
 #### Render Engine & Post-Processing Fold
 - **ID**: `director-fold-render`
 - **Used in**: Inside `director-control-room`
 - **Code**: `webapp/index.html`
-- **Design rules**: Configures raw clip quality (Standard, ProRes 4444, FFV1), lyric captions burn-in/sidecar, subliminal flashes, vision quality frame checking, compact prompts, opening/closing idents, and prompt cache reuse.
+- **Design rules**: Configures raw clip quality (Standard, ProRes 4444, FFV1), lyric captions burn-in/sidecar, subliminal flashes, vision quality frame checking, compact prompts, opening/closing idents, and prompt cache reuse (`reuse_prompts` to skip the writer LLM when testing render seeds or styles).
 
 ---
 

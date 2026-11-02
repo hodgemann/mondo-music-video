@@ -162,7 +162,7 @@ DEFAULT_STYLE = {
 
 DEFAULTS = {
     "writer_api_profile": "", "vision_api_profile": "", "video_api_profile": "",
-    "auto_updates": False, "auto_collapse_panels": True, "render_timeout_minutes": 120,
+    "auto_updates": False, "auto_collapse_panels": True, "h3_tag_normalizer": False, "render_timeout_minutes": 120,
     "backend": "local_h3", "comfy_url": "http://127.0.0.1:8188",
     "workflow_map_path": str(Path(__file__).parent / "engine/config/injection_map.json"),
     "comfy_input": "", "comfy_output": "", "comfy_sdk_url": "http://127.0.0.1:8189",

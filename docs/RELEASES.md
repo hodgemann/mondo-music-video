@@ -1,5 +1,15 @@
 # Releases
 
+## 1.12.3 — Narrative acts, recovery buttons, optional H3 tag binding
+
+Integrates hellonearthis's fork revisions `5c5b5b6`, `5cae552`, `9853212` (fork versions 1.12.3–1.12.5) and the documentation commits `20e62ee`, `0d29dcb`. Credit: hellonearthis.
+
+- **Narrative acts.** A visual vocabulary preset can carry acts (for example Act I, II, III) with their own settings, lighting, mechanisms, costumes, tonal registers and subject types. Each passage draws from the act its midpoint falls in, with optional custom spans or equal parts. Held setting, costume and subject type stay held within a passage; a thematic anchor stays. Presets without acts behave exactly as before. The selector badges presets with their act count, and `examples/vocabulary-presets/the_great_escape.json` is a three-act example. Saving a preset from the GUI no longer drops its acts.
+- **Dismiss and Purge & Start Fresh.** A failed, cancelled or interrupted operation can be dismissed back to ready, or purged with an optional log clear. Purging removes only a draft run with no finished output, assembly source or renderer work; anything else is kept and the banner still resets. An active operation is never reset. Agents: `reset_operation` (MCP), `reset-operation [--purge-run] [--clear-log]` (CLI), `AgentClient.reset_operation`; the MCP server now has 76 tools.
+- **Optional H3 tag binding (adapted).** The fork's normalizer is a Settings switch, `h3_tag_normalizer`, **off by default**. When on, local H3 and Comfy-SDK H3 renders tie each cast member's `<Picture N>` to their `<Subject N>` and replace the member's name in shot descriptions with the Subject tag. Plain colour words are never treated as names, longer names win across actors, and a definition that already names a picture is left alone. Off, the job and its Comfy fingerprint are unchanged, so earlier submitted passages still resume. The prompt as written and checked is still what is saved.
+- **Studio direction guide.** Character consistency, reference policy, the two seeds and other production tips from the fork (`docs/STUDIO_DIRECTION_PROMPTING.md`).
+- The fork's `vocab-worlds.js` brace fix was already present here. The protected prompting scheme is untouched.
+
 ## 1.12.2 — OAP 0.5 actors
 
 - **The public actor collection works again.** Actors & Props now reads the OAP 0.5 packages in the public collection. A future protocol version in the index no longer stops the list loading; each package is checked when you select it.

@@ -40,7 +40,7 @@ from mmv.workflow_presets import map_steps, preset_for_model, preset_path, workf
 from mmv.storage import DEFAULTS, Storage, identifier, inside, read_json, write_json
 
 LOG_FILES = ("operation.log", "writer-service.log", "comfy-service.log")
-MGL_APP_VERSION = "1.12.2"
+MGL_APP_VERSION = "1.12.3"
 WEB = Path(__file__).parent
 
 
@@ -187,6 +187,20 @@ class VocabularyTableOverride(StrictModel):
     exclude: list[str] = Field(default_factory=list, max_length=500)
 
 
+class NarrativeAct(StrictModel):
+    act: int = Field(ge=1, le=20)
+    title: str = Field(default="", max_length=120)
+    span: list[float] | None = None
+    tables: dict[str, VocabularyTableOverride] = Field(default_factory=dict)
+
+    @field_validator("tables")
+    @classmethod
+    def valid_act_tables(cls, value):
+        if any(k not in VOCAB_TABLES for k in value):
+            raise ValueError("Unknown vocabulary category in narrative act")
+        return value
+
+
 class WorldRequest(StrictModel):
     id: str = Field(max_length=64)
     name: str = Field(min_length=1, max_length=160)
@@ -219,6 +233,7 @@ class VocabularyRequest(StrictModel):
     description: str = Field(default="", max_length=1000)
     base_profile: Literal["full", "reduced_flashing"] = "full"
     tables: dict[str, VocabularyTableOverride] = Field(default_factory=dict)
+    acts: list[NarrativeAct] = Field(default_factory=list, max_length=10)
 
     @field_validator("id")
     @classmethod
@@ -354,6 +369,7 @@ class ProductionRequest(StrictModel):
     stem_quality: Literal["standard", "high"] = "standard"
     vocabulary_profile: str = Field(default="full", max_length=64)
     custom_vocabulary: dict[str, VocabularyTableOverride] = Field(default_factory=dict)
+    narrative_acts: list[NarrativeAct] = Field(default_factory=list, max_length=10)
     thematic_worlds: dict[str, Any] | None = None
     vocab_selection: Literal["legacy", "contextual"] = "legacy"
     world_id: str = Field(default="", max_length=64)
@@ -461,6 +477,8 @@ def request_dict(value):
         request.pop("vocab_selection", None)
     if not request.get("thematic_worlds") or request.get("thematic_worlds", {}).get("mode", "off") == "off":
         request.pop("thematic_worlds", None)
+    if not request.get("narrative_acts"):
+        request.pop("narrative_acts", None)
     return request
 
 
@@ -505,12 +523,26 @@ class ResumeRequest(StrictModel):
     run_id: str
 
 
+def purgeable_run(directory):
+    """A run is only a discardable draft while it holds no finished output, assembly source, or renderer work."""
+    renders = directory / "renders"
+    kept = (directory / "output.json").is_file() or (directory / "assembly-source.json").is_file() \
+        or (renders.is_dir() and any(renders.rglob("*")))
+    return not kept
+
+
+class ResetOperationRequest(StrictModel):
+    purge_run: bool = False
+    clear_log: bool = False
+
+
 class Settings(StrictModel):
     writer_api_profile: str = ""
     vision_api_profile: str = ""
     video_api_profile: str = ""
     auto_updates: bool = False
     auto_collapse_panels: bool = True
+    h3_tag_normalizer: bool = False
     render_timeout_minutes: int = Field(default=120, ge=0, le=1440)
     backend: Literal["local_h3", "comfy_sdk_h3", "wavespeed", "seedance_2", "seedance_2_5"] = "local_h3"
     comfy_url: str = "http://127.0.0.1:8188"
@@ -932,6 +964,31 @@ def create_app(home=None, *, test_hosts=False):
     @app.post("/api/cancel")
     def cancel():
         return jobs.cancel()
+
+    @app.post("/api/operation/reset")
+    def reset_operation(value: ResetOperationRequest = ResetOperationRequest()):
+        with jobs.lock:
+            status = jobs.status()
+            if status.get("state") in ("running", "cancelling"):
+                raise ValueError("Cannot reset an active operation; cancel it first")
+            run_id = status.get("id")
+            if value.purge_run and run_id:
+                try:
+                    target = inside(store.home / "runs", identifier(run_id))
+                    if target.is_dir() and purgeable_run(target):
+                        shutil.rmtree(target, ignore_errors=True)
+                except Exception:
+                    pass
+            if value.clear_log:
+                write_json(store.home / "log_cleared.json", {"cleared_at": time.time(), "offsets": {}})
+                studio_log = store.home / "studio.log"
+                if studio_log.exists():
+                    try:
+                        studio_log.write_text("", encoding="utf-8")
+                    except Exception:
+                        pass
+            jobs.reset()
+            return get_full_status()
 
     @app.get("/api/catalog")
     def catalog():
@@ -1538,6 +1595,8 @@ def create_app(home=None, *, test_hosts=False):
             jobs.require_idle()
             if path.is_symlink():
                 raise ValueError("Cannot overwrite a linked vocabulary file")
+            if "acts" not in value.model_fields_set and path.is_file():   # a save that does not mention acts keeps them
+                payload["acts"] = read_json(path, {}).get("acts", [])
             load_vocabulary(value.base_profile, store=store, custom=payload["tables"])
             write_json(path, payload)
             quotes.clear()

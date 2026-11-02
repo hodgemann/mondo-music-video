@@ -348,6 +348,19 @@ def prepare(store, request, *, saved_prepared=None):
                 p.segments, base_world, seed=request['seed'], slider_percent=slider_pct
             ).items():
                 p.segments[s_idx].shots[sh_idx].vocab = vocab_after
+    narrative_acts = request.get('narrative_acts')
+    if not narrative_acts and request.get('vocabulary_profile') and store is not None:
+        try:
+            preset = store.vocabulary(request['vocabulary_profile'])
+            narrative_acts = preset.get('acts')
+        except Exception:
+            pass
+    if narrative_acts:
+        from .vocab_select import plan_narrative_acts
+        for (s_idx, sh_idx), vocab_after in plan_narrative_acts(
+            p.segments, narrative_acts, request['seed'], total_frames=score.duration_frames, base_vocab=vocab
+        ).items():
+            p.segments[s_idx].shots[sh_idx].vocab = vocab_after
     departures = {}
     if request.get('world_departures'):
         from .vocab_select import plan_world_departures

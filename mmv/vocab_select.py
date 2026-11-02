@@ -264,3 +264,129 @@ def plan_gaussian_world_dissonance(
                 primary_target = sorted(chosen_worlds)[0]
                 result[(s_idx, sh_idx)] = (primary_target, new_vocab)
     return result
+
+
+# ---------------------------------------------------------------------------
+# Preset-driven Narrative Palettes (Chronological Act 1 / Act 2 / Act 3)
+# ---------------------------------------------------------------------------
+
+def resolve_act_span(act_index: int, total_acts: int, custom_span: list | tuple | None = None) -> tuple[float, float]:
+    """Return (start_ratio, end_ratio) for an act along the [0.0, 1.0] timeline.
+
+    If custom_span is provided as [start, end] with 0.0 <= start < end <= 1.0, it is used.
+    Otherwise, evenly partitions the timeline across the number of acts.
+    """
+    if custom_span and isinstance(custom_span, (list, tuple)) and len(custom_span) == 2:
+        try:
+            start, end = float(custom_span[0]), float(custom_span[1])
+            if 0.0 <= start < end <= 1.0:
+                return (round(start, 4), round(end, 4))
+        except (TypeError, ValueError):
+            pass
+    total = max(1, total_acts)
+    span_len = 1.0 / total
+    return (round(act_index * span_len, 4), round(min(1.0, (act_index + 1) * span_len), 4))
+
+
+def resolve_act_for_progress(progress: float, acts: list[dict]) -> tuple[int, dict]:
+    """Find the active act for a progress ratio (0.0 to 1.0).
+
+    Returns (act_index, act_dict).
+    """
+    total = len(acts)
+    if total <= 0:
+        return 0, {}
+    clamped = max(0.0, min(1.0, float(progress)))
+    for idx, act in enumerate(acts):
+        start, end = resolve_act_span(idx, total, act.get("span"))
+        if (start <= clamped < end) or (idx == total - 1 and clamped >= start):
+            return idx, act
+    return total - 1, acts[-1]
+
+
+def _extract_act_table(table_spec, base_list: list | None = None) -> list[str]:
+    """Extract list of available terms from either a list of strings or a VocabularyTableOverride dict."""
+    if isinstance(table_spec, list):
+        return [str(t).strip() for t in table_spec if str(t).strip()]
+    if isinstance(table_spec, dict):
+        mode = table_spec.get("mode", "append")
+        adds = [str(t).strip() for t in table_spec.get("add", []) if str(t).strip()]
+        excludes = {str(t).strip() for t in table_spec.get("exclude", []) if str(t).strip()}
+        if mode == "replace":
+            return [t for t in adds if t not in excludes]
+        base = [t for t in (base_list or []) if t not in excludes]
+        seen = set(base)
+        for t in adds:
+            if t not in seen and t not in excludes:
+                seen.add(t)
+                base.append(t)
+        return base
+    return []
+
+
+def plan_narrative_acts(
+    segments,
+    acts: list[dict],
+    seed: int = 0,
+    total_frames: int | None = None,
+    base_vocab: dict | None = None,
+) -> dict:
+    """Pure function: returns {(segment_idx, shot_idx): new_shot_vocab} for shots mapped to narrative acts.
+
+    Each act in `acts` defines custom vocabulary pools for specific tables (settings, lighting,
+    mechanisms, costume, tonal_registers, subject_types). The segment's midpoint progress along the
+    song timeline activates its corresponding Act.
+
+    Preserves:
+    - Standard & Type 1 montage: held setting is chosen once per passage so shots stay visually cohesive.
+    - Type 3 Thematic montage: thematic_anchor mechanism is preserved.
+    - Determinism: exact same seed, acts, and timeline produce identical assignments.
+    """
+    if not acts or not segments:
+        return {}
+    base_vocab = base_vocab or {}
+    if not total_frames or total_frames <= 0:
+        total_frames = max(
+            (getattr(s, "song_start_frame", 0) + getattr(s, "musical_frames", 0)) for s in segments
+        ) or 1
+
+    result = {}
+    for s_idx, seg in enumerate(segments):
+        start_f = getattr(seg, "song_start_frame", 0)
+        dur_f = getattr(seg, "musical_frames", 0)
+        mid_f = start_f + (dur_f / 2.0)
+        progress = max(0.0, min(1.0, mid_f / total_frames))
+
+        act_idx, active_act = resolve_act_for_progress(progress, acts)
+        act_tables = active_act.get("tables") or {}
+
+        held = len({sh.vocab.get("setting") for sh in seg.shots}) <= 1
+
+        for sh_idx, shot in enumerate(seg.shots):
+            new_vocab = dict(shot.vocab)
+            for key in ("setting", "lighting", "mechanism", "costume", "tonal_register", "subject_type"):
+                if key not in new_vocab:
+                    continue
+                if key == "mechanism" and getattr(seg, "thematic_anchor", None):
+                    continue
+
+                table_name = ENERGY_VOCAB_MAP.get(key)
+                if not table_name:
+                    continue
+
+                table_spec = act_tables.get(table_name) or act_tables.get(key)
+                if table_spec is None:
+                    continue
+
+                pool = _extract_act_table(table_spec, base_vocab.get(table_name))
+                if not pool:
+                    continue
+
+                pos = 0 if (held and key in ("setting", "costume", "subject_type")) else sh_idx
+                idx = stable_hash(seed, "narrative_act", act_idx, key, s_idx, pos) % len(pool)
+                new_vocab[key] = pool[idx]
+
+            if new_vocab != shot.vocab:
+                result[(s_idx, sh_idx)] = new_vocab
+
+    return result

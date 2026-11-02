@@ -1,0 +1,202 @@
+{
+  "id": "the_great_escape",
+  "name": "The Great Escape (3-Act Narrative Arc)",
+  "description": "Progressive visual narrative: begins in claustrophobic brutalist confinement, escalates through night-time urban flight, and culminates in luminous open-horizon transcendence.",
+  "base_profile": "full",
+  "tables": {},
+  "acts": [
+    {
+      "act": 1,
+      "title": "Act I: Confinement & Institutional Routine",
+      "span": [0.0, 0.35],
+      "tables": {
+        "settings": {
+          "mode": "replace",
+          "add": [
+            "basement archive",
+            "tenement stairwell",
+            "sorting office",
+            "service elevator",
+            "telephone exchange",
+            "empty courtroom",
+            "records annex"
+          ],
+          "exclude": []
+        },
+        "lighting": {
+          "mode": "replace",
+          "add": [
+            "flickering fluorescent tubes",
+            "dusty low-angle daylight",
+            "dim amber worklight",
+            "cold cathode glare",
+            "monochrome green terminal glow"
+          ],
+          "exclude": []
+        },
+        "mechanisms": {
+          "mode": "replace",
+          "add": [
+            "sorting",
+            "stamping",
+            "weighing",
+            "measuring",
+            "suspension",
+            "indexing",
+            "clockwork gear indexing"
+          ],
+          "exclude": []
+        },
+        "tonal_registers": {
+          "mode": "replace",
+          "add": [
+            "clinical",
+            "ceremonial",
+            "monotonous",
+            "oppressive",
+            "bureaucratic"
+          ],
+          "exclude": []
+        },
+        "costume": {
+          "mode": "replace",
+          "add": [
+            "heavy wool coat",
+            "structured grey workwear",
+            "buttoned collar",
+            "ironed twill uniform"
+          ],
+          "exclude": []
+        }
+      }
+    },
+    {
+      "act": 2,
+      "title": "Act II: The Flight & Transit Threshold",
+      "span": [0.35, 0.70],
+      "tables": {
+        "settings": {
+          "mode": "replace",
+          "add": [
+            "subway maintenance tunnel",
+            "freight train platform",
+            "fire escape at dusk",
+            "rain-slicked back alley",
+            "parking garage ramp",
+            "locomotive roundhouse"
+          ],
+          "exclude": []
+        },
+        "lighting": {
+          "mode": "replace",
+          "add": [
+            "sodium vapor streetlamp",
+            "sweeping emergency beacon",
+            "passing train headlamp glare",
+            "raking shadows through grating",
+            "intermittent warning strobe"
+          ],
+          "exclude": []
+        },
+        "mechanisms": {
+          "mode": "replace",
+          "add": [
+            "unspooling",
+            "climbing",
+            "accelerating",
+            "fracture",
+            "cutting",
+            "pendulum swing",
+            "running footsteps"
+          ],
+          "exclude": []
+        },
+        "tonal_registers": {
+          "mode": "replace",
+          "add": [
+            "urgent",
+            "feverish",
+            "paranoid",
+            "kinetic",
+            "breathless"
+          ],
+          "exclude": []
+        },
+        "costume": {
+          "mode": "replace",
+          "add": [
+            "disheveled shirt",
+            "oil-stained work jacket",
+            "loosened collar",
+            "heavy leather boots"
+          ],
+          "exclude": []
+        }
+      }
+    },
+    {
+      "act": 3,
+      "title": "Act III: Horizon & Transcendence",
+      "span": [0.70, 1.0],
+      "tables": {
+        "settings": {
+          "mode": "replace",
+          "add": [
+            "vast white salt flat",
+            "radio observatory dish",
+            "ocean cliff edge at dawn",
+            "open desert roadside",
+            "sunlit meadow horizon"
+          ],
+          "exclude": []
+        },
+        "lighting": {
+          "mode": "replace",
+          "add": [
+            "blinding noon sun",
+            "golden hour rim light",
+            "clean open horizon daylight",
+            "unfiltered sky ambient light",
+            "prismatic lens flare"
+          ],
+          "exclude": []
+        },
+        "mechanisms": {
+          "mode": "replace",
+          "add": [
+            "combustion",
+            "dissolution",
+            "levitation",
+            "scattering",
+            "drift",
+            "refraction",
+            "wind dispersal"
+          ],
+          "exclude": []
+        },
+        "tonal_registers": {
+          "mode": "replace",
+          "add": [
+            "elegiac",
+            "luminous",
+            "transcendent",
+            "ecstatic",
+            "serene"
+          ],
+          "exclude": []
+        },
+        "costume": {
+          "mode": "replace",
+          "add": [
+            "flowing light linen",
+            "wind-whipped fabric",
+            "sun-bleached cotton",
+            "bare feet"
+          ],
+          "exclude": []
+        }
+      }
+    }
+  ]
+}
+

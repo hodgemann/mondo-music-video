@@ -150,7 +150,10 @@ export async function loadVocabularyCatalog(force = false) {
 
 export function populateVocabProfileSelects() {
   if (!vocabDataCache) return;
-  const presets = (vocabDataCache.vocabularies || []).map((p) => [p.id, `${p.name} (${p.id})`]);
+  const presets = (vocabDataCache.vocabularies || []).map((p) => [
+    p.id,
+    `${p.name}${p.acts && p.acts.length ? ` [${p.acts.length} Acts]` : ""} (${p.id})`
+  ]);
   const entries = [
     ["full", "Full vocabulary (current default)"],
     ["reduced_flashing", "Reduced flash/strobe cues"],

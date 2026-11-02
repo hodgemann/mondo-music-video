@@ -151,6 +151,39 @@ class OriginalEngineTests(unittest.TestCase):
                     v._load_agent()
                     mock_agent_cls.assert_called_with(str(p), device='cpu')
 
+    def test_normalize_h3_prompt(self):
+        from mmv.engine.backends.local_h3 import normalize_h3_prompt
+        prompt = (
+            "subject_definitions:\n"
+            "<Subject 1> is Bob, an alien figure.\n"
+            "<Audio 1> is the rhythm.\n\n"
+            "detailed_description:\n"
+            "[Shot 1] Bob walks forward as Bob's coat rustles.\n"
+            "[Shot 2] The camera holds as Bob pauses.\n"
+        )
+        cast = [{"slot": 0, "picture_tag": "<Picture 1>", "actor_id": "bob", "display_name": "Bob"}]
+        normalized = normalize_h3_prompt(prompt, cast)
+        self.assertIn("<Subject 1> is <Picture 1>, Bob", normalized)
+        self.assertIn("[Shot 1] <Subject 1> walks forward as <Subject 1>'s coat rustles.", normalized)
+        self.assertIn("[Shot 2] The camera holds as <Subject 1> pauses.", normalized)
+        self.assertEqual(normalize_h3_prompt(normalized, cast), normalized)
+        self.assertEqual(normalize_h3_prompt(prompt, []), prompt)
+
+    def test_normalize_h3_prompt_keeps_scene_colours_and_longest_names(self):
+        from mmv.engine.backends.local_h3 import h3_cast_kwargs, normalize_h3_prompt
+        prompt = ("subject_definitions:\n<Subject 1> is Red.\n<Subject 2> is <Picture 1>, wrong.\n\n"
+                  "detailed_description:\n[Shot 1] Red lighting hits Ann Marie beside Ann.\n")
+        cast = [{"actor_id": "ann", "display_name": "Ann"}, {"actor_id": "ann_marie", "display_name": "Ann Marie"},
+                {"actor_id": "red", "display_name": "Red"}]
+        out = normalize_h3_prompt(prompt, cast)
+        self.assertIn("Red lighting hits", out)
+        self.assertIn("hits <Subject 2> beside <Subject 1>.", out)
+        self.assertIn("<Subject 1> is <Picture 1>, Red.", out)
+        self.assertIn("<Subject 2> is <Picture 1>, wrong.", out)
+        self.assertEqual(h3_cast_kwargs({}, "local_h3", cast), {})
+        self.assertEqual(h3_cast_kwargs({"h3_tag_normalizer": True}, "wavespeed", cast), {})
+        self.assertEqual(h3_cast_kwargs({"h3_tag_normalizer": True}, "local_h3", cast), {"cast": cast})
+
     def test_python_311_syntax(self):
         for directory in ('mmv','webapp'):
             for path in (ROOT/directory).rglob('*.py'):

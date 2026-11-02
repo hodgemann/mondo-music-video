@@ -10,6 +10,7 @@ export const settingLabels = {
   video_api_profile: "Video API profile",
   auto_updates: "Automatic updates",
   auto_collapse_panels: "Collapse completed panels automatically",
+  h3_tag_normalizer: "Bind H3 pictures and subjects automatically",
   comfy_sdk_url: "Local Comfy API proxy URL",
   backend: "Default renderer",
   comfy_url: "ComfyUI service URL",
@@ -43,6 +44,7 @@ export const settingLabels = {
 
 export const settingTooltips = {
   auto_updates: "At the next launch, install tracked repository updates automatically. Turn off to check and notify only.",
+  h3_tag_normalizer: "Local H3 only, off by default. At render time, tie each cast member's Picture tag to their Subject definition and replace their name in the shot descriptions with the Subject tag. Prompts stay as written and checked.",
   auto_collapse_panels: "Collapse a required panel when its last required field loses focus. Progress colours and labels stay visible when this is off.",
   comfy_sdk_url: "Official Comfy API v2 proxy on this machine, usually http://127.0.0.1:8189",
   backend: "Default video generation engine for music videos and idents",
@@ -244,7 +246,7 @@ export async function loadSettings() {
       input = document.createElement("select");
       input.append(option("", "Manual configuration", "Use the individual settings below"));
       input.append(...(data.api_profiles || []).filter(p => p.role === role).map(p => option(p.name, p.name)));
-    } else if (name === "auto_updates" || name === "auto_collapse_panels") {
+    } else if (name === "auto_updates" || name === "auto_collapse_panels" || name === "h3_tag_normalizer") {
       input = document.createElement("input");
       input.type = "checkbox";
       input.checked = Boolean(value);
@@ -406,6 +408,7 @@ function settingsPayload(form) {
   }
   raw.auto_updates = form.elements.auto_updates.checked;
   raw.auto_collapse_panels = form.elements.auto_collapse_panels.checked;
+  raw.h3_tag_normalizer = form.elements.h3_tag_normalizer.checked;
   raw.vision_call_estimate = Number(raw.vision_call_estimate);
   raw.writer_call_estimate = Number(raw.writer_call_estimate);
   raw.render_timeout_minutes = Math.max(0, Math.round(Number(raw.render_timeout_minutes) || 0));

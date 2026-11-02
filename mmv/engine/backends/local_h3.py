@@ -22,6 +22,7 @@ the planner and the GUI can know the ceilings without opening the map.
 
 from __future__ import annotations
 
+import re
 import shutil
 import time
 from pathlib import Path
@@ -29,6 +30,59 @@ from pathlib import Path
 from .. import grid
 from ..comfy import ComfyClient, RefTags, WorkflowBuilder, slice_audio
 from .base import Backend, BackendError, TAG_SYNTAX_MINIMAX_H3
+
+COMMON_COLOR_STOPWORDS = frozenset({
+    "red", "blue", "green", "black", "white", "grey", "gray", "gold", "yellow", "brown", "dark", "light"
+})
+H3_BACKENDS = frozenset({"local_h3", "comfy_sdk_h3"})
+
+
+def h3_cast_kwargs(settings: dict, backend_name: str, cast_members: list[dict]) -> dict:
+    """The opt-in `h3_tag_normalizer` setting hands the cast to an H3 renderer; otherwise the job is exactly as before."""
+    on = settings.get("h3_tag_normalizer") and backend_name in H3_BACKENDS and cast_members
+    return {"cast": cast_members} if on else {}
+
+
+def _cast_names(member: dict) -> list[str]:
+    names = (str(n).strip() for n in (member.get("display_name"), member.get("actor_id"), member.get("part")) if n)
+    return list(dict.fromkeys(n for n in names if n and n.lower() not in COMMON_COLOR_STOPWORDS))
+
+
+def _bind_picture(text: str, sub_tag: str, pic_tag: str, label: str) -> str:
+    """Tie `<Picture N>` to its `<Subject N>` definition; a definition that already names a picture is left alone."""
+    definition = re.search(rf"{re.escape(sub_tag)}[ \t]+is[ \t]+([^\n]*)", text, re.IGNORECASE)
+    if definition:
+        if re.search(r"<Picture\s*\d+>", definition.group(1)):
+            return text
+        return text[:definition.start(1)] + f"{pic_tag}, " + text[definition.start(1):]
+    head = "subject_definitions:\n"
+    at = text.find(head)
+    return text if at == -1 else text[:at + len(head)] + f"{sub_tag} is {pic_tag} ({label}).\n" + text[at + len(head):]
+
+
+def normalize_h3_prompt(prompt: str, cast_members: list[dict] | None) -> str:
+    """Normalize a prompt for MiniMax H3 so reference images and subjects are properly bound.
+
+    1. Ensures each cast member's <Picture N> tag is tied to their <Subject N> in subject_definitions.
+    2. Replaces literal character names in detailed_description (the shot descriptions) with <Subject N>
+       so H3's text-image cross-attention conditioning is activated. Longer names win across all actors,
+       and plain colour words are never treated as names.
+    """
+    if not prompt or not cast_members:
+        return prompt
+    normalized = prompt
+    names = {}
+    for i, member in enumerate(cast_members):
+        sub_tag = f"<Subject {i + 1}>"
+        pic_tag = member.get("picture_tag") or f"<Picture {i + 1}>"
+        label = member.get("display_name") or member.get("actor_id") or "character"
+        normalized = _bind_picture(normalized, sub_tag, pic_tag, label)
+        names.update({n.lower(): sub_tag for n in _cast_names(member) if n.lower() not in names})
+    desc_pos = normalized.find("detailed_description:")
+    if desc_pos != -1 and names:
+        pattern = re.compile(r"(?<![<A-Za-z0-9_])(" + "|".join(re.escape(n) for n in sorted(names, key=len, reverse=True)) + r")(?![>A-Za-z0-9_])", re.IGNORECASE)
+        normalized = normalized[:desc_pos] + pattern.sub(lambda m: names[m.group(1).lower()], normalized[desc_pos:])
+    return normalized
 
 
 class LocalH3Backend(Backend):
@@ -172,8 +226,12 @@ class LocalH3Backend(Backend):
             if name:
                 images.append(name)
 
+        prompt = job["prompt"]
+        if job.get("cast"):
+            prompt = normalize_h3_prompt(prompt, job["cast"])
+
         build_kwargs = dict(
-            prompt=job["prompt"],
+            prompt=prompt,
             duration_input=job["duration_input"],
             seed=job["seed"],
             width=job["width"], height=job["height"],

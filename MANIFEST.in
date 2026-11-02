@@ -42,3 +42,4 @@ recursive-include webapp/vendor *.js LICENSE
 prune data
 prune worlds
 prune world-proposals
+include examples/vocabulary-presets/the_great_escape.json

@@ -1,6 +1,6 @@
 # Mondo Music Video
 
-**Version 1.12.2** · MAXIMUM GOOSE LABORATORY · Apache License 2.0
+**Version 1.12.3** · MAXIMUM GOOSE LABORATORY · Apache License 2.0
 
 Turn a song into a music video. Beat-aware shot planning, LLM-written prompts, local or
 hosted rendering, actors that dance, lip-sync and play instruments, Worlds, storyboards,
@@ -290,6 +290,23 @@ this studio's recipient key. Imported manifests are schema-validated offline, lo
 cast-only assets, and role agreements record a casting between this studio
 (Director) and an actor's Agent, each signing with their own key.
 
+### Character consistency and eliminating random subjects
+
+When casting characters from your character sheets or reference images, you can eliminate random uncast strangers and control how your characters appear throughout the video inside the **Camera & Montage Policies** fold on the Music Video panel:
+
+- **Reference policy:** Set to **All montage types** (`all`) to eliminate random strangers completely. The default (`fragmentation`) only binds reference sheets to peak-energy passages, causing intro, verse, or multi-scene passages to invent anonymous, one-off figures. Setting this to **All montage types** forces every single passage across the entire song to use your cast members and reference images.
+- **Cast assignment:** Choose **Hold through musical section** (`section`) to keep character continuity through an entire verse or chorus before switching to the next actor. Use **Rotate** (`rotate`) for strict round-robin alternation, or **Seeded random** (`random`) for variety.
+- **Ensemble mode & Actors on screen:** By default (`One actor at a time`), passages feature solo characters. To have your characters appear together in the same frames, set **Ensemble** to **Always** (or **Mixed** during energetic passages) and increase **Actors on screen** to 2 or more.
+
+### Studio direction & power-user tips
+
+For fine-grained creative control over video generation and post-production, see [Studio Direction & Prompting](docs/STUDIO_DIRECTION_PROMPTING.md#6-power-user-production-tips--studio-best-practices):
+- **Passage takes & single-clip rerolls:** Reroll, rewrite, or hand-edit single passage clips on finished local productions and re-encode the final video losslessly from chosen takes without re-rendering the whole song.
+- **The Two Seeds:** Master the difference between the **Variation Seed** (narrative blueprint, scene cuts, and vocabulary draws) and the **Render Seed** (diffusion noise, facial micro-expressions, and lighting physics).
+- **Lip-sync & approved singing:** How lyrics and singer assignments lift the default sealed-lips constraint during performance passages while preventing mouth spasms in instrumentals.
+- **Reference image composition:** Best practices for neutral backgrounds, clean three-quarter framing, and the optional `h3_tag_normalizer` setting (off by default) that ties each `<Picture N>` to its `<Subject N>` for local MiniMax H3.
+- **Aspect ratios & resolution scaling:** Configure 9:16 vertical video for mobile social reels or 2.39:1 anamorphic cinemascope for cinema releases.
+
 ## Queue several productions
 
 Preview a music video or ident and choose **Add to queue** instead of starting it, even while something is
@@ -300,7 +317,7 @@ from their saved prompts and clips.
 
 ## Agent operation
 
-The v1.12.2 MCP server has 75 tools, including a production queue (`queue_production`, `start_queue`, `read_queue`), OPP package inspection/import/sheet selection, prompt-retry previews, API profile add/select/remove,
+The v1.12.3 MCP server has 76 tools, including operation recovery and reset (`reset_operation`), a production queue (`queue_production`, `start_queue`, `read_queue`), OPP package inspection/import/sheet selection, prompt-retry previews, API profile add/select/remove,
 model/service preferences, starter installation, confirmed actor/style
 deletion, audition exports, OAP role agreements, musical score reading, lyric captioning of finished videos, visual vocabulary presets,
 world editing, passage prompts and versions (`rewrite_prompt`, `edit_prompt`, `select_prompt_take`), clip takes with seeds

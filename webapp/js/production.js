@@ -457,6 +457,11 @@ export async function applyStatus(status) {
   $("#cancel").hidden = !busy;
   $("#resume-production").hidden = !status.can_resume;
   $("#retry-prompts").hidden = !status.can_retry_prompts;
+  const stopped = ["failed", "cancelled", "interrupted"].includes(status.state);
+  const resetBtn = $("#reset-operation");
+  if (resetBtn) resetBtn.hidden = !stopped;
+  const purgeRestartBtn = $("#purge-restart-operation");
+  if (purgeRestartBtn) purgeRestartBtn.hidden = !stopped;
   $("#show-log").hidden = false;
   $$(".operation-action").forEach(button => button.disabled = busy);
   if (status.queue) renderQueue(status.queue);
@@ -722,6 +727,63 @@ export function initOperationControls() {
       btn.innerHTML = original;
     }
   });
+
+  const resetOpBtn = $("#reset-operation");
+  if (resetOpBtn) {
+    resetOpBtn.onclick = handle(async () => {
+      const updated = await json("/api/operation/reset", { purge_run: false, clear_log: false });
+      applyStatus(updated);
+      notice("Operation dismissed. Ready when you are.");
+    });
+  }
+
+  const purgeRestartBtn = $("#purge-restart-operation");
+  const purgeRestartDialog = $("#purge-restart-dialog");
+  const purgeRestartCancel = $("#purge-restart-cancel");
+  const purgeRestartConfirm = $("#purge-restart-confirm");
+  const purgeClearLogCheck = $("#purge-clear-log-check");
+
+  if (purgeRestartBtn && purgeRestartDialog) {
+    purgeRestartBtn.onclick = () => {
+      if (typeof purgeRestartDialog.showModal === "function") {
+        purgeRestartDialog.showModal();
+      } else {
+        purgeRestartDialog.hidden = false;
+      }
+    };
+    if (purgeRestartCancel) {
+      purgeRestartCancel.onclick = () => {
+        if (typeof purgeRestartDialog.close === "function") {
+          purgeRestartDialog.close();
+        } else {
+          purgeRestartDialog.hidden = true;
+        }
+      };
+    }
+    if (purgeRestartConfirm) {
+      purgeRestartConfirm.onclick = handle(async () => {
+        const clearLog = Boolean(purgeClearLogCheck && purgeClearLogCheck.checked);
+        purgeRestartConfirm.disabled = true;
+        try {
+          const updated = await json("/api/operation/reset", { purge_run: true, clear_log: clearLog });
+          if (clearLog) {
+            state.sessionLogs.length = 0;
+            state.currentRun = null;
+            $("#operation-log").textContent = "Log cleared. Waiting for new activity.";
+          }
+          applyStatus(updated);
+          if (typeof purgeRestartDialog.close === "function") {
+            purgeRestartDialog.close();
+          } else {
+            purgeRestartDialog.hidden = true;
+          }
+          notice(clearLog ? "Draft purged and operation log cleared. Ready when you are." : "Draft purged. Ready when you are.");
+        } finally {
+          purgeRestartConfirm.disabled = false;
+        }
+      });
+    }
+  }
 
   $("#start-production").onclick = handle(async () => {
     if (state.currentQuote?.offline_engines?.length) {

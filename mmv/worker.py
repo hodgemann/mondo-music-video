@@ -10,6 +10,7 @@ import subprocess
 import sys
 from pathlib import Path
 from urllib.parse import urlparse
+from .engine.backends.local_h3 import h3_cast_kwargs
 from . import writer_usage, storyboard
 from .dance import is_blocking as dance_blocking
 from .instruments import is_blocking as instrument_blocking
@@ -670,7 +671,8 @@ def run(home, directory, *, resume=False, rewrite=None):
                     if line.startswith('VmRSS:')), None) if Path('/proc/self/status').exists() else None
         if rss: print(f'Mondo worker memory before rendering: {int(rss) / 1048576:.2f} GiB', flush=True)
         def render_passage(seg, segment_id, seed):
-            images = [(member['actor_id'],sheets[member['actor_id']]) for member in casting.cast_for(prepared['casting'],seg.segment_id)]
+            cast_members = casting.cast_for(prepared['casting'], seg.segment_id)
+            images = [(member['actor_id'], sheets[member['actor_id']]) for member in cast_members]
             if instrument_plan:
                 instruments.verify_assets(instrument_plan)
                 images += instruments.images(instrument_passages[seg.segment_id], instrument_plan)
@@ -679,7 +681,8 @@ def run(home, directory, *, resume=False, rewrite=None):
                 result = backend.render_segment(segment_id=segment_id,index=seg.index,slug=plan.slug,
                     prompt=prompts[seg.segment_id],duration_input=seg.duration_input,gen_frames=seg.gen_frames,
                     width=plan.width,height=plan.height,seed=seed,images=images,song=str(song),
-                    audio_start_s=seg.audio_slice_start_s,audio_end_s=seg.audio_slice_end_s)
+                    audio_start_s=seg.audio_slice_start_s,audio_end_s=seg.audio_slice_end_s,
+                    **h3_cast_kwargs(settings, request['backend'], cast_members))
             except Exception as exc:
                 err_str = str(exc).lower()
                 if any(term in err_str for term in ("connection refused", "winerror 10061", "offline", "unreachable", "failed to establish", "target machine actively refused")):

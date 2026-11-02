@@ -1,4 +1,8 @@
-# Verification — 1.12.1
+# Verification — 1.12.3
+
+## 1.12.3
+
+Mock-only tests: narrative acts (`tests/test_vocab_select.py`), reset and purge (including a run with renderer work being kept, and acts surviving a GUI save) in `tests/test_public_app.py`, the H3 normalizer and its opt-in gate in `tests/test_original_engine.py`, 76 MCP tools. No render was run, so the effect of narrative acts and H3 tag binding on video quality is unverified. Firefox was not tested for the new Dismiss and Purge buttons.
 
 ## 1.12.1 — Collaborator fork `aa1e06b`
 

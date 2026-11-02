@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mondo-music-video"
-version = "1.12.2"
+version = "1.12.3"
 description = "Turn a song into a music video. Beat-aware shot planning, LLM-written prompts, local or hosted rendering, actors that dance, lip-sync and play instruments, Worlds, storyboards, and frame-exact assembly with your original audio. Agent-installable, with MCP tools and Open Actor/Prop Protocols."
 readme = "README.md"
 requires-python = ">=3.11"
