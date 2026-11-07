@@ -81,6 +81,10 @@ verify the assets appear in the app. Never import other local/private assets.
   disabled, startup only checks/notifies and links to the installation's own
   tracked repository. Preserve local work, private data and active operations.
 - Do not publish or push without user authorization.
+- A request to publish the completed release authorizes its scoped commit, push,
+  tag and GitHub Release. Keep that authorization through follow-ups; do not
+  repeat resolved permission or file-scope questions. Leave unrelated untracked
+  files untouched and follow `docs/COLLABORATION.md` for shared-checkout checks.
 - The owner's internal lab nicknames, member titles and who-is-who are private. Never put them in published files,
   commit messages, release notes, credits, posts or demo text; credit collaborators only by their public handles.
   The private details live in the local, ignored `docs/TEAM_STATUS.md`.

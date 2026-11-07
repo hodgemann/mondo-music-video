@@ -280,6 +280,11 @@ Before any commit or push:
 4. Commit and push only when the user has said to. A request to "commit everything" still means confirming what that includes when work
    from another session is present.
 
+Publication authorization persists for its stated scope. When the owner asks to publish a completed release, carry it through
+commit, push, tag and GitHub Release without asking again at each step. A confirmed file scope also satisfies the shared-checkout
+check above; do not repeat that question. Leave unrelated pre-existing untracked files unstaged and untouched. Ask again only if
+the scope has genuinely changed or a new decision is required.
+
 ## Handoffs and verification
 
 Before handing off, update TEAM_STATUS.md with changed files, validation actually
