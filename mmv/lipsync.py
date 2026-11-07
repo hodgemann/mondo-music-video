@@ -190,8 +190,11 @@ def swap_audio_sentence(prompt, music_tag):
     return prompt.replace(original, singing_audio_sentence(music_tag))
 
 
+_WORDS_RE = re.compile(r"[a-z0-9']+")
+
+
 def _words(text):
-    return re.findall(r"[a-z0-9']+", text.lower())
+    return _WORDS_RE.findall(text.lower())
 
 
 SEALED_TERMS = re.compile(r"\b(sealed|closed mouth|mouth (is )?(closed|shut)|lips (are |stay |remain )?(shut|closed|together|pressed)|"
@@ -207,20 +210,24 @@ SINGER_ACTION = re.compile(r"\b(sing|sings|singing|sang|sung|lips?|mouth|mouths|
 _QUOTED = re.compile(r"\"[^\"]*\"|“[^”]*”|(?<!\w)'[^']*'(?!\w)")
 _MASK = {c: chr(1 + i) for i, c in enumerate('.!?,;:')}
 _UNMASK = {v: k for k, v in _MASK.items()}
+_MASK_TRANS = str.maketrans(_MASK)
+_UNMASK_TRANS = str.maketrans(_UNMASK)
+_SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+|\n+")
+_CLAUSE_SPLIT = re.compile(r"[;:]| while | whereas | as | but | then |, ")
 
 
 def _units(body, singer_refs, other_refs):
     """(clause, owner) pairs: owner is 'singer', 'other', 'both' or None. A clause with no cast reference ("He sings
     'I am'") belongs to whoever the previous clause was about. Quoted lyrics are never cut at their punctuation."""
-    masked = _QUOTED.sub(lambda m: ''.join(_MASK.get(c, c) for c in m.group(0)), body)
+    masked = _QUOTED.sub(lambda m: m.group(0).translate(_MASK_TRANS), body)
     units, subject = [], None
-    for sentence in (p.strip() for p in re.split(r"(?<=[.!?])\s+|\n+", masked) if p.strip()):
-        for clause in (c.strip() for c in re.split(r"[;:]| while | whereas | as | but | then |, ", sentence) if c.strip()):
+    for sentence in (p.strip() for p in _SENTENCE_SPLIT.split(masked) if p.strip()):
+        for clause in (c.strip() for c in _CLAUSE_SPLIT.split(sentence) if c.strip()):
             has_singer, has_other = any(r in clause for r in singer_refs), any(r in clause for r in other_refs)
             continued = subject if PRONOUN_START.match(clause) else None      # only "He sings..." continues the last actor
             owner = 'both' if has_singer and has_other else 'singer' if has_singer else 'other' if has_other else continued
             subject = owner if owner in ('singer', 'other') else None if owner == 'both' else subject   # scene clauses keep the antecedent
-            units.append((''.join(_UNMASK.get(c, c) for c in clause), owner))
+            units.append((clause.translate(_UNMASK_TRANS), owner))
     return units
 
 

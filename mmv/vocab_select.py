@@ -206,6 +206,8 @@ def plan_gaussian_world_dissonance(
         cal = calibrate_distance_matrix(centroids)
         calibrated_dists = cal["calibrated"]
 
+    weights_cache = {}
+
     def pick_cluster_for_tier(tier: str, kappa_eff: float, s_idx: int, pos: int, key: str) -> str:
         if tier == "base":
             return base_world
@@ -215,9 +217,11 @@ def plan_gaussian_world_dissonance(
             "opposite": 0.85,
             "maximal": 1.00,
         }.get(tier, kappa_eff)
-        weights = gaussian_cluster_weights(
-            base_world, calibrated_dists, target_k, d_max=1.0, exclude_base=True
-        )
+        if target_k not in weights_cache:
+            weights_cache[target_k] = gaussian_cluster_weights(
+                base_world, calibrated_dists, target_k, d_max=1.0, exclude_base=True
+            )
+        weights = weights_cache[target_k]
         if not weights:
             return base_world
         ranked = sorted(weights.items())

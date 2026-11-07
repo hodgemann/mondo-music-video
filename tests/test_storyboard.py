@@ -51,6 +51,20 @@ class StoryboardTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             ProductionRequest(storyboard={'mode': 'invented'})
 
+    def test_humanize_storyboard_directions(self):
+        sloppy = {'panels': [{'image': 'a.png', 'direction': 'In this shot, we see a delicate dance of shadow and light on the pavement, creating a sense of dread.'}]}
+        # Default (humanize=False): unchanged
+        self.assertEqual(storyboard.parse_response(json.dumps(sloppy), ['a.png'])[0]['direction'], sloppy['panels'][0]['direction'])
+        # Opt-in (humanize=True): cleaned
+        cleaned = storyboard.parse_response(json.dumps(sloppy), ['a.png'], humanize=True)
+        self.assertEqual(cleaned[0]['direction'], 'Stark light and deep shadows on the pavement.')
+        with tempfile.TemporaryDirectory() as tmp, TestClient(create_app(Path(tmp), test_hosts=True)) as client:
+            result = client.post('/api/storyboards/humanize', json=sloppy['panels'])
+            self.assertEqual(result.status_code, 200)
+            self.assertEqual(result.json(), cleaned)
+            self.assertEqual(client.post('/api/storyboards/humanize', json=[{'direction': 'x'}] * 25).status_code, 422)
+            self.assertTrue(client.get('/api/thematic-worlds').json())
+
     def test_interpretation_and_result_inspection(self):
         with tempfile.TemporaryDirectory() as tmp:
             store = Storage(Path(tmp)); (store.home / 'uploads' / 'a.png').write_bytes(fixtures.picture())

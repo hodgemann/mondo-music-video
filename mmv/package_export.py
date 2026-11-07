@@ -169,13 +169,17 @@ def actors_of(request, casting):
     return [(i, names.get(i, i)) for i in ids if i]
 
 
+_DATE_PREFIX = re.compile(r'\[?(\d{4}-\d\d-\d\d[T ]\d\d:\d\d:\d\d)')
+_SAFE_SLUG_RE = re.compile(r'[^A-Za-z0-9]+')
+
+
 def run_seconds(run):
     op = read_json(run / 'operation.json') or {}
     if isinstance(op.get('started'), (int, float)) and isinstance(op.get('finished'), (int, float)):
         return op['finished'] - op['started']
     stamps = []
     for line in (run / 'operation.log').read_text(errors='replace').splitlines() if (run / 'operation.log').is_file() else []:
-        m = re.match(r'\[?(\d{4}-\d\d-\d\d[T ]\d\d:\d\d:\d\d)', line)
+        m = _DATE_PREFIX.match(line)
         if m:
             stamps.append(datetime.datetime.fromisoformat(m.group(1).replace(' ', 'T')))
     return (stamps[-1] - stamps[0]).total_seconds() if len(stamps) > 1 else None
@@ -327,7 +331,7 @@ def export(run, out, zip_it=False, allow_private=False, log=print, secrets=()):
     song = request.get('song')
     song_target = None
     if song:
-        slug = re.sub(r'[^A-Za-z0-9]+', '_', request.get('title') or run.name).strip('_')[:40] or 'song'
+        slug = _SAFE_SLUG_RE.sub('_', request.get('title') or run.name).strip('_')[:40] or 'song'
         song_target = pack.put(data / 'uploads' / Path(song).name, f'03_audio/{slug}_song{Path(song).suffix.lower()}')
     else:
         pack.absent.append('03_audio/song (request has no song)')
@@ -400,7 +404,7 @@ def export(run, out, zip_it=False, allow_private=False, log=print, secrets=()):
     if clips and song_target is not None and pas:
         fps = pas[0]['fps']
         total = (read_json(run / 'plan.json') or {}).get('total_frames') or max(s + f for _, s, f in clips)
-        slug = re.sub(r'[^A-Za-z0-9]+', '_', request.get('title') or run.name).strip('_')[:40] or 'production'
+        slug = _SAFE_SLUG_RE.sub('_', request.get('title') or run.name).strip('_')[:40] or 'production'
         pack.write(f'08_timeline/{slug}.edl', edl(request.get('title') or run.name, fps, clips, song_target.name, total))
     readme = readme_text(run, request, casting, prepared, pas, label, cast, private, pack, stills, idents, bool(studio))
     (out / 'README.md').write_text(readme, encoding='utf-8')
@@ -535,7 +539,7 @@ def readme_text(run, request, casting, prepared, pas, label, cast, private, pack
 def package_folder(store, run):
     """A human-friendly folder: the video's title and the date and time it was made, e.g. halp_fren_2026-10-19_0409."""
     request = read_json(run / 'request.json', {}) or {}
-    slug = re.sub(r'[^A-Za-z0-9]+', '_', request.get('title') or '').strip('_')[:40] or run.name[:8]
+    slug = _SAFE_SLUG_RE.sub('_', request.get('title') or '').strip('_')[:40] or run.name[:8]
     done = (read_json(run / 'operation.json', {}) or {}).get('finished')
     if not isinstance(done, (int, float)):
         done = (run / 'output.json').stat().st_mtime

@@ -16,6 +16,11 @@ remove them, or add text panels. A sheet containing several panels may produce
 several directions referencing the same source image. Loading a result leaves
 **Use this storyboard** unchecked so you can review it before use.
 
+**Humanize directions** previews local cleanup of common AI clichés in the current
+panels. The **Humanize directions** checkbox applies the same cleanup to a new
+vision interpretation; it is off by default. Review the resulting text before
+using it, since a phrase can carry a meaning the cleanup misses or removes.
+
 Check **Use this storyboard**, then preview your video or ident. Music video panels
 are spread in order across the existing planned shots, with approximately equal
 numbers of shots per panel. Preview shows their start times. More panels than shots
@@ -50,6 +55,10 @@ the total actor/reference limit is nine.
    consent flow. Poll status; cancellation uses the existing cancel tool.
 4. List results with `inspect_studio(kind="storyboards")` or CLI `storyboards`.
    Read one with `inspect_storyboard(run_id)` or CLI `storyboard-result RUN_ID`.
+   For opt-in cleanup during interpretation, set `storyboard.humanize: true` in
+   the storyboard preview request. To preview cleanup of existing panels, call
+   `humanize_storyboard(panels)` or CLI `humanize-storyboard PANELS_JSON_FILE`.
+   This is local and free; review/edit the returned panels before use.
 5. Edit the returned panels, then include the following in a video/ident request:
 
    ```json
@@ -62,7 +71,7 @@ the total actor/reference limit is nine.
 6. Inspect the returned `storyboard.passages` alignment before starting production.
    Review the final video through the existing output inspection/download tools.
 
-REST equivalents: `POST /api/quote`, `POST /api/start`, `GET /api/status`,
+REST equivalents: `POST /api/storyboards/humanize` (JSON panel array), `POST /api/quote`, `POST /api/start`, `GET /api/status`,
 `GET /api/storyboards`, `GET /api/storyboards/{run_id}`. These cover the same
 preview/action/review/recovery flow as the GUI. Editing is local draft editing;
 there is no extra server mutation or approval endpoint.

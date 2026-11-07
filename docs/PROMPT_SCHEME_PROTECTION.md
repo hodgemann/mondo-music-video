@@ -15,6 +15,10 @@ review or render as something else. The damage often shows only after an expensi
 - The sealed-lips scheme: `SILENT_MOUTHS_RULE_V013`, `RIGGING_TAIL`, `NATURAL_MOUTHS_RULE`.
 - The owner-approved singing wording in `mmv/lipsync.py` and the motion/framing rules in `mmv/quality.py`.
 
+The later lipsync mechanics in `mmv/lipsync.py` are outside the original protected
+core. A change to those helper functions alone is not a change to the approved
+singing wording. The explicit singing-wording pins remain in place.
+
 `mmv/protected_scheme.py` records a fingerprint of each file and rule text, and of the writer and ident system prompts as the code actually
 composes them (so removing the step that inserts the sealed-lips rule is caught even if no text changes). Tests fail if one changes, the app shows an orange warning banner, and
 every exported production package states whether the scheme is unmodified.

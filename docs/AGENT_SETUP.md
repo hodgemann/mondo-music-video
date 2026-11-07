@@ -42,7 +42,7 @@ inspect the studio, upload selected media, preview/start/cancel productions,
 read logs, create/delete actors/styles, inspect/import/export OAP, draft/sign/verify
 OAP role agreements, download outputs, price (`estimate_upscale`) and start a requested Topaz export
 (installed or cloud; cloud needs `max_credits` from the user's approved estimate).
-v1.12.3 exposes **76 tools** and advertises the
+v1.12.4 exposes **77 tools** and advertises the
 application version in MCP initialization. It has no shell or private-studio tools.
 `reset_operation` (CLI `reset-operation [--purge-run] [--clear-log]`) returns a stopped, failed or cancelled operation to ready; a purge removes only a draft run with no finished output, assembly source or renderer work, and an active operation is never reset. The `h3_tag_normalizer` setting (off by default; `update_studio_settings`) binds each cast member's Picture tag to its Subject at local H3 render time.
 Queue tools (`read_queue`, `queue_production`, `start_queue`, `pause_queue`, `move_queue_ticket`, `preview_queue_ticket`, `resume_queue_ticket`, `remove_queue_ticket`, `clear_finished_queue_tickets`) run whole productions one at a time; only priced tickets need consent, and those are held if their approved plan changes.
@@ -145,6 +145,10 @@ built-in pools. `save_vocabulary_preset` stores a reusable preset (per category
 authorization. A production selects one with `vocabulary_profile` or supplies
 one-off `custom_vocabulary` overrides in the preview request. Neither spends money;
 saving is refused while an operation is running.
+`inspect_studio(kind="thematic-worlds")` (CLI `thematic-worlds`) lists the new
+curated thematic World cards and their five vocabulary pools. Agents can inspect
+them, then send chosen terms as `custom_vocabulary` in a preview; no card is
+applied automatically.
 
 ## Optional batched vision quality check
 
@@ -341,6 +345,10 @@ review cost and start only with authorization. Poll status, list `storyboards`, 
 read `inspect_storyboard(run_id)` (CLI `storyboard-result RUN_ID`). Edit/reorder
 `panels: [{image, direction}]` before adding the result as `storyboard` with
 `enabled: true` to a video/ident preview. Modes are `narrative` (default) and `visual`.
+Optional `storyboard.humanize: true` cleans a new vision interpretation; it is off by
+default. For existing panels, preview local cleanup with MCP `humanize_storyboard`,
+`AgentClient.humanize_storyboard`, CLI `humanize-storyboard PANELS_JSON_FILE`, or
+`POST /api/storyboards/humanize`. Review and edit the returned panels before preview.
 Text-only panels use empty image IDs. Inspect returned `storyboard.passages` timing
 before start. No automatic interpretation retry; recover completed results by run ID,
 and inspect logs before making another call. Inspect raw model output with

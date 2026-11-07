@@ -36,11 +36,12 @@ from mmv.pipeline import VOCAB_TABLES, apply_vocabulary_overrides, load_vocabula
 from mmv.render import CATALOG
 from mmv.services import check_services
 from mmv.storyboard import Storyboard
+from mmv.prose_humanizer import humanize_panels
 from mmv.workflow_presets import map_steps, preset_for_model, preset_path, workflow_presets
 from mmv.storage import DEFAULTS, Storage, identifier, inside, read_json, write_json
 
 LOG_FILES = ("operation.log", "writer-service.log", "comfy-service.log")
-MGL_APP_VERSION = "1.12.3"
+MGL_APP_VERSION = "1.12.4"
 WEB = Path(__file__).parent
 
 
@@ -1658,6 +1659,16 @@ def create_app(home=None, *, test_hosts=False):
     def quick_start_plan():
         from mmv import quick_start
         return quick_start.plan([a["id"] for a in list_actors()], [s["id"] for s in styles()])
+
+    @app.post("/api/storyboards/humanize")
+    def storyboard_humanize(panels: list[dict[str, Any]]):
+        if len(panels) > 24 or any(not isinstance(panel.get("direction", ""), str) for panel in panels):
+            raise HTTPException(422, "Use at most 24 panels with text directions")
+        return humanize_panels(panels)
+
+    @app.get("/api/thematic-worlds")
+    def thematic_worlds():
+        return json.loads((WEB / "thematic-worlds-extended.json").read_text(encoding="utf-8"))
 
     @app.get("/api/storyboards")
     def storyboard_results():

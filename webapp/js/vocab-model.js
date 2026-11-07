@@ -107,7 +107,9 @@ export const getCategoryStats = (catalog, draft, cat) => {
   }
   const exc = new Set(ov.exclude || []);
   const added = ov.add || [];
-  const activeItems = [...baseItems.filter((x) => !exc.has(x)), ...added];
+  const activeItems = exc.size === 0
+    ? (added.length ? baseItems.concat(added) : baseItems)
+    : baseItems.filter((x) => !exc.has(x)).concat(added);
   return {
     activeItems,
     count: activeItems.length,

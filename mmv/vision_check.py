@@ -77,6 +77,11 @@ def sample_frames(video_or_frame_count, trim_frames, shot_starts, budget=8):
     return sorted(chosen)
 
 
+_JSON_FENCE = re.compile(r'^```(?:json)?\s*|\s*```$', re.I)
+_MMPROJ_PREFIX = re.compile(r'^mmproj[-_.]*', re.I)
+_QUANT_SUFFIX = re.compile(r'[-_.](?:[qi]q?\d.*|f16|f32|bf16)$', re.I)
+
+
 def _error(message):
     return {'frame_fill': 'unknown', 'defects': [], 'error': str(message)[:240]}
 
@@ -93,7 +98,7 @@ def judge_frame(base_url, model, png_bytes, timeout=TIMEOUT, max_tokens=None):
                                          data=json.dumps(payload).encode(), headers={'Content-Type': 'application/json'})
         with urllib.request.urlopen(request, timeout=timeout) as response:
             content = json.load(response)['choices'][0]['message']['content']
-        content = re.sub(r'^```(?:json)?\s*|\s*```$', '', content.strip(), flags=re.I)
+        content = _JSON_FENCE.sub('', content.strip())
         result = json.loads(content)
         if (not isinstance(result, dict) or result.get('frame_fill') not in ('full', 'bordered', 'unknown')
                 or not isinstance(result.get('defects'), list)
@@ -209,8 +214,8 @@ def vision_command(writer_launch_json, port, alias='mmv-vision', context=16384):
                 model = str(candidate)
                 break
     def family(stem):
-        stem = re.sub(r'^mmproj[-_.]*', '', stem, flags=re.I)
-        return re.sub(r'[-_.](?:[qi]q?\d.*|f16|f32|bf16)$', '', stem, flags=re.I).lower()
+        stem = _MMPROJ_PREFIX.sub('', stem)
+        return _QUANT_SUFFIX.sub('', stem).lower()
     matches = sorted(p for p in path.parent.glob('mmproj*.gguf') if p.is_file() and family(p.stem) == family(path.stem))
     if len(matches) != 1:
         raise ValueError(f'expected one matching sibling mmproj*.gguf for {path.name}; found {len(matches)}')

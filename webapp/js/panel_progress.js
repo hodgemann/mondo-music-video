@@ -3,6 +3,7 @@ import { $, $$, state } from "./core.js";
 
 const CARD_IDS = ["card-track-direction", "card-cast-staging", "director-control-room"];
 const FOLD_IDS = ["director-pacing", "director-camera", "director-format", "director-render"];
+const FOLD_ID_SET = new Set(FOLD_IDS);
 let saved = {};
 let units = [];
 let autoCollapse = true;
@@ -79,7 +80,7 @@ function progressFor(unit) {
 
 function cueFor(unit, progress) {
   if (unit.id === "director-control-room") {
-    const folds = units.filter(other => FOLD_IDS.includes(other.id));
+    const folds = units.filter(other => FOLD_ID_SET.has(other.id));
     return `${folds.filter(other => other.reviewed).length} of 4 reviewed`;
   }
   const status = panelState(progress, !unit.open, unit.reviewed);
@@ -91,7 +92,7 @@ function cueFor(unit, progress) {
 
 function tintFor(unit, progress) {
   if (unit.id === "director-control-room") {
-    const folds = units.filter(other => FOLD_IDS.includes(other.id));
+    const folds = units.filter(other => FOLD_ID_SET.has(other.id));
     return folds.length ? folds.reduce((sum, other) => sum + tintFor(other, progressFor(other)), 0) / folds.length : 0;
   }
   return progress.required_total ? progress.required_filled / progress.required_total :

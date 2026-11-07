@@ -1,6 +1,7 @@
 """OAP 0.5 actor packages: plain, sealed, attested and revoked. Temporary data only."""
 import io
 import json
+import os
 from pathlib import Path
 
 import oap
@@ -114,7 +115,8 @@ def test_older_packages_still_import(tmp_path):
 def test_private_recipient_key_is_not_world_readable(tmp_path):
     store = Storage(tmp_path / "studio")
     actors.recipient_identity(store)
-    assert (store.home / "recipient-identity.json").stat().st_mode & 0o077 == 0
+    if os.name != "nt":
+        assert (store.home / "recipient-identity.json").stat().st_mode & 0o077 == 0
 
 
 def test_concurrent_first_callers_get_one_recipient_key(tmp_path):

@@ -22,6 +22,7 @@ the planner and the GUI can know the ceilings without opening the map.
 
 from __future__ import annotations
 
+import functools
 import re
 import shutil
 import time
@@ -35,6 +36,12 @@ COMMON_COLOR_STOPWORDS = frozenset({
     "red", "blue", "green", "black", "white", "grey", "gray", "gold", "yellow", "brown", "dark", "light"
 })
 H3_BACKENDS = frozenset({"local_h3", "comfy_sdk_h3"})
+_PICTURE_PATTERN = re.compile(r"<Picture\s*\d+>")
+
+
+@functools.lru_cache(maxsize=32)
+def _sub_definition_pattern(sub_tag: str) -> re.Pattern:
+    return re.compile(rf"{re.escape(sub_tag)}[ \t]+is[ \t]+([^\n]*)", re.IGNORECASE)
 
 
 def h3_cast_kwargs(settings: dict, backend_name: str, cast_members: list[dict]) -> dict:
@@ -50,9 +57,9 @@ def _cast_names(member: dict) -> list[str]:
 
 def _bind_picture(text: str, sub_tag: str, pic_tag: str, label: str) -> str:
     """Tie `<Picture N>` to its `<Subject N>` definition; a definition that already names a picture is left alone."""
-    definition = re.search(rf"{re.escape(sub_tag)}[ \t]+is[ \t]+([^\n]*)", text, re.IGNORECASE)
+    definition = _sub_definition_pattern(sub_tag).search(text)
     if definition:
-        if re.search(r"<Picture\s*\d+>", definition.group(1)):
+        if _PICTURE_PATTERN.search(definition.group(1)):
             return text
         return text[:definition.start(1)] + f"{pic_tag}, " + text[definition.start(1):]
     head = "subject_definitions:\n"

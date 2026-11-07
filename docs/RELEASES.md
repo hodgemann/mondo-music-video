@@ -1,5 +1,17 @@
 # Releases
 
+## 1.12.4 — Storyboard cleanup, more thematic Worlds, and measured code paths
+
+Credit: [hellonearthis](https://github.com/hellonearthis) for fork revisions `f814ecf` and `2389f58`, reviewed at exact head `2389f58` with a bounded Claude Haiku 5.5 review.
+
+- **Optional storyboard prose cleanup.** A checkbox cleans new vision interpretations, and **Humanize directions** cleans panels already in the editor. Both are off until chosen. The cleanup is local and free; interpretation still uses its existing quote and explicit start consent. GUI, `AgentClient`, CLI `humanize-storyboard`, MCP `humanize_storyboard`, and `POST /api/storyboards/humanize` use the same Python rules. Review the text before applying it to a production.
+- **Eight additional thematic World cards** are available in the browser library. Agents can inspect their terms through `inspect_studio(kind="thematic-worlds")` or CLI `thematic-worlds`, then preview chosen `custom_vocabulary` overrides. No World is applied automatically.
+- **Performance pass.** Reused regular expressions, reduced repeated JS array copies, cached static World scoring data, and vectorized World centroid and distance calculations. The measured results and test scope are in [verification](https://github.com/hodgemann/mondo-music-video/blob/main/docs/VERIFICATION.md).
+- **Lipsync helper optimization.** The fork's precompiled word and clause patterns and `str.translate` punctuation masking are included. The owner clarified that these later helper mechanics are outside the original protected core. The singing wording, sealed-lips rules and protection pins are unchanged; differential checks matched the prior helper outputs. The measured speed difference on a small synthetic corpus was modest and is recorded in [verification](https://github.com/hodgemann/mondo-music-video/blob/main/docs/VERIFICATION.md).
+- **Direction guide.** Added a concise cognitive pacing and physical-action section adapted from the fork's longer guide.
+
+Integration fixes: the fork's prose rule could delete a following sealed-lips instruction and produced broken grammar for some phrases; the local action now keeps a following clause and conjugates its replacements. The new browser action uses the same API as agents. The fork's ambiguous `replan_segment_vocabulary` overload remains omitted because it can select a passage by seed, and its `divergent` Laya label remains omitted because the declared validator answer is `contradicts_style`. The fork's expanded storyboard architecture document was adapted instead of copied because it contains machine-specific links and claims beyond the verified workflow. No paid or GPU call was made for this integration.
+
 ## 1.12.3 — Narrative acts, recovery buttons, optional H3 tag binding
 
 Integrates hellonearthis's fork revisions `5c5b5b6`, `5cae552`, `9853212` (fork versions 1.12.3–1.12.5) and the documentation commits `20e62ee`, `0d29dcb`. Credit: hellonearthis.

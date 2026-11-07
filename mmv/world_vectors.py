@@ -183,7 +183,10 @@ def compute_cluster_centroid(
     if raw_embeddings.ndim == 1:
         raw_embeddings = raw_embeddings.reshape(1, -1)
 
-    unit_vectors = np.array([l2_normalize(vec) for vec in raw_embeddings], dtype=np.float64)
+    # Vectorized row normalization avoiding iterative Python list comprehensions
+    norms = np.linalg.norm(raw_embeddings, axis=1, keepdims=True)
+    norms[norms < 1e-12] = 1.0
+    unit_vectors = raw_embeddings / norms
     mean_centroid = np.mean(unit_vectors, axis=0)
     return l2_normalize(mean_centroid)
 
@@ -205,28 +208,30 @@ def calibrate_distance_matrix(
 ) -> Dict[str, object]:
     """Compute pairwise cosine distances and calibrate against empirical P15 and P85 bounds.
 
-    Returns:
-      {
-        "raw": {world_a: {world_b: raw_dist}},
-        "calibrated": {world_a: {world_b: calibrated_0_to_1}},
-        "p15": float,
-        "p85": float,
-        "d_max": float,
-      }
+    Uses BLAS matrix multiplication to calculate the complete pairwise cosine distance
+    matrix in a single vectorized operation rather than N^2 Python loops.
     """
     names = list(centroids.keys())
-    raw: Dict[str, Dict[str, float]] = {name: {} for name in names}
-    off_diagonal: List[float] = []
+    if not names:
+        return {"raw": {}, "calibrated": {}, "p15": 0.0, "p85": 1.0, "d_max": 1.0}
 
+    # Vectorized centroid matrix: D = 1.0 - clip(A @ A.T, -1.0, 1.0)
+    unit_matrix = np.array([l2_normalize(centroids[name]) for name in names], dtype=np.float64)
+    sim_matrix = np.clip(unit_matrix @ unit_matrix.T, -1.0, 1.0)
+    dist_matrix = np.clip(1.0 - sim_matrix, 0.0, 2.0)
+    np.fill_diagonal(dist_matrix, 0.0)
+
+    # Build raw dictionary and extract upper-triangle distances for percentile calibration
+    raw: Dict[str, Dict[str, float]] = {}
+    off_diagonal: List[float] = []
+    n = len(names)
     for i, name_i in enumerate(names):
+        raw[name_i] = {}
         for j, name_j in enumerate(names):
-            if i == j:
-                raw[name_i][name_j] = 0.0
-            else:
-                dist = cosine_distance(centroids[name_i], centroids[name_j])
-                raw[name_i][name_j] = dist
-                if i < j:
-                    off_diagonal.append(dist)
+            d = float(dist_matrix[i, j])
+            raw[name_i][name_j] = d
+            if i < j:
+                off_diagonal.append(d)
 
     if not off_diagonal:
         return {"raw": raw, "calibrated": raw, "p15": 0.0, "p85": 1.0, "d_max": 1.0}
@@ -237,15 +242,14 @@ def calibrate_distance_matrix(
     d_max = float(np.max(arr))
     span = max(1e-9, p85 - p15)
 
-    calibrated: Dict[str, Dict[str, float]] = {name: {} for name in names}
-    for name_i in names:
-        for name_j in names:
-            if name_i == name_j:
-                calibrated[name_i][name_j] = 0.0
-            else:
-                d = raw[name_i][name_j]
-                scaled = (d - p15) / span
-                calibrated[name_i][name_j] = float(max(0.0, min(1.0, scaled)))
+    # Vectorized piecewise linear calibration clamped to [0.0, 1.0]
+    calibrated_arr = np.clip((dist_matrix - p15) / span, 0.0, 1.0)
+    np.fill_diagonal(calibrated_arr, 0.0)
+
+    calibrated: Dict[str, Dict[str, float]] = {
+        name_i: {name_j: float(calibrated_arr[i, j]) for j, name_j in enumerate(names)}
+        for i, name_i in enumerate(names)
+    }
 
     return {
         "raw": raw,

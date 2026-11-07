@@ -30,6 +30,7 @@ class Storyboard(BaseModel):
     model_config = ConfigDict(extra="forbid")
     enabled: bool = False
     mode: Literal["narrative", "visual"] = "narrative"
+    humanize: bool = False
     images: list[str] = Field(default_factory=list, max_length=MAX_PANELS)
     panels: list[StoryboardPanel] = Field(default_factory=list, max_length=MAX_PANELS)
 
@@ -107,7 +108,7 @@ def ident_notes(direction, board, segment_id):
     return direction if context is None else direction + '\n\nStoryboard direction:\n' + json.dumps(context, ensure_ascii=False)
 
 
-def parse_response(raw, images):
+def parse_response(raw, images, humanize: bool = False):
     if not isinstance(raw, str):
         raise ValueError("The vision response must be text")
     raw = raw.strip()
@@ -122,6 +123,9 @@ def parse_response(raw, images):
         raise ValueError('The vision response was not a valid storyboard; inspect the saved response before requesting another interpretation') from None
     if not 1 <= len(panels) <= MAX_PANELS or any(p['image'] not in images for p in panels):
         raise ValueError('The vision response has invalid panels or image references')
+    if humanize:
+        from .prose_humanizer import humanize_panels
+        return humanize_panels(panels)
     return panels
 
 
@@ -141,8 +145,8 @@ def interpret(home, directory):
                    + 'User direction: ' + request.get('direction', ''))
     content = [{'type': 'text', 'text': instruction}]
     for name, path in zip(board['images'], paths):
-        content += [{'type': 'text', 'text': 'Uploaded filename: ' + name},
-                    {'type': 'image_url', 'image_url': {'url': 'data:image/png;base64,' + base64.b64encode(path.read_bytes()).decode()}}]
+        content.append({'type': 'text', 'text': 'Uploaded filename: ' + name})
+        content.append({'type': 'image_url', 'image_url': {'url': 'data:image/png;base64,' + base64.b64encode(path.read_bytes()).decode()}})
     write_json(directory / 'progress.json', {'message': 'Interpreting storyboard images', 'progress': 15})
     response = request_json(settings['vision_url'].rstrip('/') + '/chat/completions',
                             {'model': settings['vision_model'], 'temperature': .2, 'max_tokens': 8000,
@@ -155,8 +159,9 @@ def interpret(home, directory):
     if not isinstance(raw, str):
         raise ValueError('The vision response must be text')
     (directory / 'storyboard-response.txt').write_text(raw, encoding='utf-8')
-    panels = parse_response(raw, board['images'])
-    result = {'enabled': True, 'mode': board['mode'], 'images': board['images'], 'panels': panels}
+    should_humanize = bool(board.get('humanize'))
+    panels = parse_response(raw, board['images'], humanize=should_humanize)
+    result = {'enabled': True, 'mode': board['mode'], 'humanize': should_humanize, 'images': board['images'], 'panels': panels}
     write_json(directory / 'storyboard.json', result)
     write_json(directory / 'result.json', {'storyboard': result, 'run_id': directory.name})
 

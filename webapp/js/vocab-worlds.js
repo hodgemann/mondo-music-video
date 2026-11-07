@@ -4,7 +4,11 @@
 import { $, $$, copyToClipboard, notice, state as appState } from "./core.js";
 import { scheduleSave } from "./project.js";
 import { loadVocabularyCatalog, updateVocabCustomBadge } from "./vocabulary.js";
+import { EXTENDED_THEMATIC_WORLDS } from "./thematic-worlds-extended.js";
 
+// WHAT: Default baseline thematic worlds loaded when no custom project state exists.
+// WHY: Ensures the UI has a balanced initial set of active (bureaucratic, brutalist) and inactive
+// anchor worlds with realistic similarity scores before the user runs prompt classification.
 export const DEFAULT_WORLDS = [
   { name: "Bureaucratic / Carceral", score: 0.81, active: true, locked: false },
   { name: "Brutalist Concrete", score: 0.70, active: true, locked: false },
@@ -12,7 +16,9 @@ export const DEFAULT_WORLDS = [
   { name: "Maritime / Salt", score: 0.31, active: false, locked: false }
 ];
 
-export const THEMATIC_WORLDS_LIBRARY = [
+// WHAT: Core built-in aesthetic worlds library defining keywords and signature vocabulary pools across 5 dimensions.
+// WHY: Provides the foundational domain knowledge base that ships directly with the application.
+export const BUILTIN_THEMATIC_WORLDS_LIBRARY = [
   {
     name: "Bureaucratic / Carceral",
     keywords: [
@@ -166,12 +172,62 @@ export const THEMATIC_WORLDS_LIBRARY = [
   }
 ];
 
+// WHAT: Merges base and external thematic world arrays, deduplicating case-insensitively by world name.
+// WHY: Allows expanding the library with external modules, custom files, or runtime payloads without duplicating world cards.
+export const mergeThematicWorldLibraries = (baseLibrary = [], externalLibrary = []) => {
+  const existingNames = new Set(baseLibrary.map(world => world.name.toLowerCase().trim()));
+  const uniqueAdditions = externalLibrary.filter(world => {
+    if (!world?.name) return false;
+    const key = world.name.toLowerCase().trim();
+    if (existingNames.has(key)) return false;
+    existingNames.add(key);
+    return true;
+  });
+  return [...baseLibrary, ...uniqueAdditions];
+};
+
+// WHAT: Asynchronously imports or fetches external thematic worlds from an ES module or JSON endpoint.
+// WHY: Enables loading custom world definition files dynamically at runtime without restarting or re-bundling.
+export async function loadExternalThematicWorlds(resourcePath = "./thematic-worlds-extended.js") {
+  try {
+    if (resourcePath.endsWith(".js")) {
+      const module = await import(resourcePath);
+      const items = module.EXTENDED_THEMATIC_WORLDS || module.default || module.THEMATIC_WORLDS || [];
+      return Array.isArray(items) ? items : [];
+    }
+    const response = await fetch(resourcePath);
+    if (!response.ok) return [];
+    const parsedData = await response.json();
+    return Array.isArray(parsedData) ? parsedData : [];
+  } catch {
+    return [];
+  }
+}
+
+// WHAT: Canonical domain library of curated aesthetic worlds, keywords, and signature vocabulary pools.
+// WHY: Acts as the reference knowledge base for semantic prompt scoring and vocabulary compilation across
+// five production dimensions: Settings, Lighting, Mechanisms, Costume, and Practical Effects.
+// Merges the core built-in worlds with extended worlds loaded from external modules or files.
+export const THEMATIC_WORLDS_LIBRARY = mergeThematicWorldLibraries(
+  BUILTIN_THEMATIC_WORLDS_LIBRARY,
+  EXTENDED_THEMATIC_WORLDS
+);
+
+// WHAT: High-frequency English grammatical function words (articles, prepositions, conjunctions, pronouns, auxiliaries).
+// WHY: In natural language prompt classification, these grammatical "glue" words appear universally regardless of
+// subject matter. Removing them ensures the world scoring algorithm isolates domain-specific nouns, adjectives, and
+// evocative visual keywords (e.g. "concrete", "fluorescent", "neon", "decay") rather than artificially inflating scores
+// based on sentence length or triggering accidental prefix and substring matches against thematic keywords.
 const PROMPT_STOPWORDS = new Set([
   "the", "and", "that", "this", "with", "from", "for", "through", "into", "over",
   "under", "about", "your", "they", "them", "their", "have", "been", "were",
   "will", "would", "could", "should", "some", "what", "when", "where", "which"
 ]);
 
+// WHAT: Normalizes raw keyword/token match points into a calibrated 0.00–1.00 similarity score.
+// WHY: Raw scores scale with prompt verbosity and keyword counts. Non-linear piecewise interpolation
+// maps the score relative to the top candidate (maxRaw) into distinct tiers (0.80+, 0.55–0.80, 0.30–0.55),
+// ensuring readable percentages on meters and clear separation between leading and trailing matches.
 const normalizeRawScore = (rawScore, maxRaw, idx) => {
   if (maxRaw <= 0) {
     return Math.max(0.20, Number((0.75 - idx * 0.12).toFixed(2)));
@@ -183,35 +239,70 @@ const normalizeRawScore = (rawScore, maxRaw, idx) => {
   return Math.max(0.15, 0.28 - idx * 0.03);
 };
 
-const computeWorldRawScore = (world, rawText, meaningfulTokens) => {
-  const worldKeywords = (world.keywords || []).map(k => k.toLowerCase());
-  const worldNameLower = world.name.toLowerCase();
+// WHAT: Pre-computed lowercase keyword and signature pool term caches for high-frequency prompt scoring.
+// WHY: Avoids re-mapping arrays, re-lowercasing strings, and flattening pool arrays on every keystroke/scoring call.
+const worldScoreCache = new WeakMap();
 
-  // 1. Prompt string contains whole keywords/phrases
-  const keywordMatchScore = worldKeywords.reduce(
+const getWorldIndex = (world) => {
+  let cached = worldScoreCache.get(world);
+  if (!cached) {
+    const keywords = (world.keywords || []).map(k => k.toLowerCase());
+    const keywordsSet = new Set(keywords);
+    const flattenedPools = Object.values(world.pools || {}).flat().map(t => t.toLowerCase());
+    cached = {
+      nameLower: world.name.toLowerCase(),
+      keywords,
+      keywordsSet,
+      flattenedPools
+    };
+    worldScoreCache.set(world, cached);
+  }
+  return cached;
+};
+
+// WHAT: Calculates the composite raw semantic affinity score of a world against a user prompt.
+// WHY: Combines three complementary retrieval signals:
+//   1. Full multi-word and hyphenated keyword phrase occurrences in the raw text (highest confidence).
+//   2. Individual token exact matches and prefix stems against world names and keywords.
+//   3. Exact matches against signature vocabulary pool terms across all five dimensions.
+const computeWorldRawScore = (world, rawText, meaningfulTokens) => {
+  const { nameLower, keywords, keywordsSet, flattenedPools } = getWorldIndex(world);
+
+  // WHAT: Score full multi-word or hyphenated keyword phrases found in the prompt string.
+  // WHY: Multi-word phrases like "night-shift" or "evidence locker" carry stronger thematic specificity than single tokens.
+  const keywordMatchScore = keywords.reduce(
     (sum, kw) => sum + (rawText.includes(kw) ? ((kw.includes(" ") || kw.includes("-")) ? 4.5 : 3.0) : 0),
     0
   );
 
-  // 2. Token overlap and prefix matching
+  // WHAT: Score token overlap, exact keyword matches, and morphological prefix stems.
+  // WHY: Rewards prompts containing exact tokens or shared root words (e.g., "brutal" matching "brutalist")
+  // while weighting world title matches more heavily.
   const tokenMatchScore = meaningfulTokens.reduce((sum, tok) => {
-    const nameBonus = worldNameLower.includes(tok) ? 2.5 : 0;
-    const exactMatch = worldKeywords.some(kw => kw === tok);
-    const prefixMatch = !exactMatch && tok.length >= 4 && worldKeywords.some(kw => kw.startsWith(tok) || tok.startsWith(kw));
+    const nameBonus = nameLower.includes(tok) ? 2.5 : 0;
+    const exactMatch = keywordsSet.has(tok);
+    const prefixMatch = !exactMatch && tok.length >= 4 && keywords.some(kw => kw.startsWith(tok) || tok.startsWith(kw));
     const kwBonus = exactMatch ? 2.0 : prefixMatch ? 1.0 : 0;
     return sum + nameBonus + kwBonus;
   }, 0);
 
-  // 3. Signature pools check
-  const poolMatchScore = Object.values(world.pools || {})
-    .flat()
-    .reduce((sum, term) => sum + (rawText.includes(term.toLowerCase()) ? 2.0 : 0), 0);
+  // WHAT: Score exact matches against world signature pool items.
+  // WHY: If a prompt mentions specific props or settings (e.g. "pneumatic tube"), that strongly anchors the world.
+  const poolMatchScore = flattenedPools.reduce(
+    (sum, termLower) => sum + (rawText.includes(termLower) ? 2.0 : 0),
+    0
+  );
 
   return keywordMatchScore + tokenMatchScore + poolMatchScore;
 };
 
+// WHAT: Classifies and ranks library worlds against input text, preserving director-locked selections.
+// WHY: Enables automated stylistic world discovery from song briefs, director notes, or lyrics while
+// guaranteeing that worlds manually locked by the user are never dropped or replaced during re-analysis.
 export const scorePromptAgainstWorlds = (promptText, currentWorlds = [], library = THEMATIC_WORLDS_LIBRARY) => {
   const rawText = String(promptText || "").toLowerCase().trim();
+  // WHAT: Fallback to baseline library ranking when prompt text is empty.
+  // WHY: Keeps UI functional and predictable before the user enters analysis text.
   if (!rawText) {
     return library.slice(0, 4).map((w, i) => {
       const existing = currentWorlds.find(cw => cw.name === w.name);
@@ -224,6 +315,9 @@ export const scorePromptAgainstWorlds = (promptText, currentWorlds = [], library
     });
   }
 
+  // WHAT: Sanitize and tokenize input text into clean, content-bearing words.
+  // WHY: Stripping punctuation, splitting on whitespace, discarding words of length <= 2, and filtering
+  // out PROMPT_STOPWORDS isolates semantically rich visual tokens and eliminates false-positive world matches.
   const meaningfulTokens = rawText
     .replace(/[^a-z0-9\s-]/g, " ")
     .split(/\s+/)
@@ -251,12 +345,14 @@ export const scorePromptAgainstWorlds = (promptText, currentWorlds = [], library
     };
   });
 
-  const selectedFromRanked = ranked.reduce((acc, item) => (
-    acc.length < 4 || item.locked
-      ? [...acc, { name: item.name, score: item.score, active: item.active, locked: item.locked }]
-      : acc
-  ), []);
+  // WHAT: Select the top 4 ranked candidate worlds plus any user-locked worlds.
+  // WHY: Guarantees a minimum cluster of 4 worlds for comparison while honoring user overrides.
+  const selectedFromRanked = ranked
+    .filter((item, idx) => idx < 4 || item.locked)
+    .map(item => ({ name: item.name, score: item.score, active: item.active, locked: item.locked }));
 
+  // WHAT: Ensure all locked worlds from the previous state are preserved even if ranked outside the top 4.
+  // WHY: A locked world is an explicit director choice and must remain active in the workspace.
   const addedNames = new Set(selectedFromRanked.map(item => item.name));
   const lockedWorlds = currentWorlds.filter(w => w.locked);
   const missingLocked = lockedWorlds
@@ -273,6 +369,9 @@ export const scorePromptAgainstWorlds = (promptText, currentWorlds = [], library
     .slice(0, Math.max(4, lockedWorlds.length));
 };
 
+// WHAT: Standard visual vocabulary dimensions and baseline terms-per-dimension requirements.
+// WHY: A balanced production requires diversity across environment, lighting, kinetic action, wardrobe,
+// and practical effects. These target counts prevent vocabulary exhaustion during multi-passage generation.
 const POOL_DIMENSIONS = [
   { name: "Settings", defaultNeed: 9 },
   { name: "Lighting", defaultNeed: 6 },
@@ -281,16 +380,22 @@ const POOL_DIMENSIONS = [
   { name: "Practical Effects", defaultNeed: 5 }
 ];
 
-const uniqueCaseInsensitive = (terms) =>
-  terms.reduce(
-    (acc, term) => (
-      acc.some(existing => existing.toLowerCase() === term.toLowerCase())
-        ? acc
-        : [...acc, term]
-    ),
-    []
-  );
+// WHAT: Deduplicates an array of keyword strings case-insensitively, preserving original casing.
+// WHY: Uses an internal Set lookup to achieve linear O(N) deduplication without allocating O(N^2) intermediate arrays.
+const uniqueCaseInsensitive = (terms = []) => {
+  const seen = new Set();
+  return terms.filter(term => {
+    const lower = String(term || "").toLowerCase().trim();
+    if (!lower || seen.has(lower)) return false;
+    seen.add(lower);
+    return true;
+  });
+};
 
+// WHAT: Merges and compiles visual vocabulary pools from all currently activated thematic worlds.
+// WHY: When a director activates one or more worlds (e.g. "Brutalist Concrete" + "Bureaucratic"), their
+// signature terms are extracted per dimension, deduplicated against existing pool terms, and sized against
+// the target need count to provide a coherent visual aesthetic.
 export const compilePoolsFromActiveWorlds = (activeWorldNames = [], currentPools = [], library = THEMATIC_WORLDS_LIBRARY) => {
   const activeSet = new Set(activeWorldNames);
   const activeWorlds = library.filter(w => activeSet.has(w.name));
@@ -309,9 +414,8 @@ export const compilePoolsFromActiveWorlds = (activeWorldNames = [], currentPools
     const existingChipStates = existingPool?.chipStates ? { ...existingPool.chipStates } : {};
     const need = existingPool ? existingPool.need : dim.defaultNeed;
 
-    const worldTerms = activeWorlds
-      .flatMap(world => world.pools?.[dim.name] || [])
-      .reduce((acc, term) => (acc.includes(term) ? acc : [...acc, term]), []);
+    const rawWorldTerms = activeWorlds.flatMap(world => world.pools?.[dim.name] || []);
+    const worldTerms = [...new Set(rawWorldTerms)];
 
     const mergedTerms = uniqueCaseInsensitive([...worldTerms, ...existingTerms]);
 
@@ -326,6 +430,9 @@ export const compilePoolsFromActiveWorlds = (activeWorldNames = [], currentPools
   });
 };
 
+// WHAT: Standard song structure sections paired with their baseline juxtaposition coefficients (kappa, κ).
+// WHY: Verse and outro sections have low baseline juxtaposition (κ = 0.05–0.20) to ground core imagery,
+// while choruses and bridges allow elevated juxtaposition (κ = 0.75–0.90) for peak musical and visual energy.
 export const DEFAULT_SECTIONS = [
   { name: "Verse 1", baseKappa: 0.08 },
   { name: "Pre-chorus", baseKappa: 0.35 },
@@ -336,6 +443,8 @@ export const DEFAULT_SECTIONS = [
   { name: "Outro", baseKappa: 0.05 }
 ];
 
+// WHAT: Pre-seeded fallback vocabulary pools across the five dimensions with initial terms and targets.
+// WHY: Provides valid initial chips and status badges before dynamic world compilation or project loading.
 export const DEFAULT_POOLS = [
   {
     dimension: "Settings",
@@ -374,12 +483,16 @@ export const DEFAULT_POOLS = [
   }
 ];
 
+// WHAT: Instructional copy describing the operational behavior of the three vocabulary sampling modes.
+// WHY: Informs the director how world constraints influence random keyword selection in prompt generation.
 export const MODE_DESCRIPTIONS = {
   off: "Sampling from the entire visual vocabulary pool. Thematic worlds and juxtaposition levels are ignored.",
   guided: "Matched thematic worlds are weighted up. Diverse strays remain possible across musical passages.",
   strict: "Strictly confined to matched anchor worlds plus kappa-governed strays on high-energy sections."
 };
 
+// WHAT: Sanitizes raw strings by replacing HTML metacharacters with XML entity references.
+// WHY: Prevents XSS injection and DOM syntax breakages when interpolating user-supplied strings into markup.
 const escapeHtml = (s = "") =>
   s
     .replace(/&/g, "&amp;")
@@ -388,11 +501,17 @@ const escapeHtml = (s = "") =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 
+// WHAT: Calculates the dynamic juxtaposition coefficient (κ) for a section scaled by the director slider.
+// WHY: The UI slider acts as a 0.0x–2.0x multiplier centered at 50% (1.0x). Scaling base section kappa by
+// 2 * (slider / 100) and clamping to [0.0, 1.0] gives smooth, musically responsive thematic variance.
 export const computeEffectiveKappa = (baseKappa, sliderValue) => {
   const s = sliderValue / 100;
   return Math.max(0, Math.min(1, baseKappa * 2 * s));
 };
 
+// WHAT: Generates HTML markup for the thematic worlds list, similarity score meters, and lock controls.
+// WHY: Pure template renderer that decouples markup generation from DOM attachment, maintaining zero side effects
+// and deterministic rendering from input state.
 export const renderWorldsHtml = (worlds, isOff) => {
   if (!worlds.length) return `<div class="sub">No worlds matched.</div>`;
   const items = worlds.map((w, i) => {
@@ -423,6 +542,9 @@ export const renderWorldsHtml = (worlds, isOff) => {
   return items + gapNote;
 };
 
+// WHAT: Generates HTML markup for the musical juxtaposition arc bar chart and slider multiplier badge.
+// WHY: Visualizes the dynamic juxtaposition coefficient (κ) across song sections, highlighting sections
+// with κ >= 0.90 ("hot-bar") where aesthetic tier adjacency rules are suspended for dramatic contrast.
 export const renderBarsHtml = (sections, sliderValue, mode) => {
   const isOff = mode === "off";
   const s = sliderValue / 100;
@@ -450,6 +572,8 @@ export const renderBarsHtml = (sections, sliderValue, mode) => {
   return { barsHtml: bars, multiplierText: multText };
 };
 
+// WHAT: Maps UI dimension display labels (e.g. "Practical Effects") to snake_case category dictionary keys.
+// WHY: Ensures uniform lookup keys when querying the core vocabulary catalog and compiling custom vocab payloads.
 export const dimensionToCategoryKey = (dim) => {
   const normalized = String(dim || "").toLowerCase().trim();
   const map = {
@@ -463,6 +587,9 @@ export const dimensionToCategoryKey = (dim) => {
   return map[normalized] || normalized.replace(/\s+/g, "_");
 };
 
+// WHAT: Derives term counts (active, pinned, excluded), effective pool size, and shortage status for a pool.
+// WHY: Centralizes pool arithmetic and shortage detection for status badges, borrowing triggers, and
+// custom vocabulary compilation without reading from or writing to the DOM.
 export const computePoolCounts = (pool, borrowed = false) => {
   const terms = pool.terms || [];
   const chipStates = pool.chipStates || {};
@@ -496,6 +623,8 @@ export const computePoolCounts = (pool, borrowed = false) => {
   };
 };
 
+// WHAT: Formats human-readable pool status strings showing available terms, required terms, and selection counts.
+// WHY: Provides immediate feedback in the pool header on whether a dimension has sufficient term variety.
 export const formatPoolStatusText = (pool, borrowed = false) => {
   const { currentPoolCount, selectedTowardsNeed, need, remainingNeeded } = computePoolCounts(pool, borrowed);
   const isCostume = pool.dimension === "Costume";
@@ -512,6 +641,8 @@ export const formatPoolStatusText = (pool, borrowed = false) => {
 const CHIP_STATE_LABELS = ["Included (default)", "Pinned (forced into rotation)", "Excluded (blocked from rotation)"];
 const CHIP_TOOLTIP = "Click to cycle: Included → Pinned (must appear) → Excluded";
 
+// WHAT: Generates HTML markup for all five vocabulary pool rows, interactive term chips, and catalog dropdowns.
+// WHY: Renders the complete visual vocabulary workbench based purely on input pools, borrowed state, and catalog data.
 export const renderPoolsHtml = (pools, borrowed, catalog = null) => {
   return pools.map((p, poolIdx) => {
     const { isLow } = computePoolCounts(p, borrowed);
@@ -560,6 +691,9 @@ export const renderPoolsHtml = (pools, borrowed, catalog = null) => {
   }).join("");
 };
 
+// WHAT: Partitions pool keywords into pinned, excluded, and standard included arrays based on chip states.
+// WHY: Decouples UI chip button state from backend rule compilation, supporting DOM-rendered chips when present
+// or in-memory pool data structures during headless execution.
 const partitionPoolTerms = (pool, poolIdx, domContainer) => {
   const chips = domContainer
     ? [...domContainer.querySelectorAll(`.worlds-term-chip[data-pool="${poolIdx}"]`)]
@@ -576,47 +710,58 @@ const partitionPoolTerms = (pool, poolIdx, domContainer) => {
         chipState: Number(pool.chipStates?.[term] || 0)
       }));
 
-  return entries.reduce(
-    (acc, { term, chipState }) => {
-      if (chipState === 2) return { ...acc, excluded: [...acc.excluded, term] };
-      if (chipState === 1) return { ...acc, pinned: [...acc.pinned, term] };
-      return { ...acc, included: [...acc.included, term] };
-    },
-    { pinned: [], excluded: [], included: [] }
-  );
+  const pinned = [];
+  const excluded = [];
+  const included = [];
+  for (const { term, chipState } of entries) {
+    if (chipState === 2) excluded.push(term);
+    else if (chipState === 1) pinned.push(term);
+    else included.push(term);
+  }
+  return { pinned, excluded, included };
 };
 
+// WHAT: Compiles active pools, sampling mode, and chip states into engine-compatible custom vocabulary schema rules.
+// WHY: In "strict" mode, replaces the category pool with pinned and included terms while enforcing exclusions.
+// In "guided" mode, appends pinned terms to the catalog while excluding blacklisted items.
+// In "off" mode, returns an empty mapping so standard vocabulary sampling is used.
 export const compileWorldsToCustomVocab = (pools, mode, domContainer = null) => {
   if (mode === "off") return {};
 
-  return pools.reduce((draft, pool, poolIdx) => {
+  const result = {};
+  for (let poolIdx = 0; poolIdx < pools.length; poolIdx++) {
+    const pool = pools[poolIdx];
     const key = dimensionToCategoryKey(pool.dimension);
     const { pinned, excluded, included } = partitionPoolTerms(pool, poolIdx, domContainer);
 
     if (mode === "strict") {
       const activePool = [...pinned, ...included];
-      return activePool.length > 0
-        ? { ...draft, [key]: { mode: "replace", add: activePool, exclude: excluded } }
-        : draft;
-    }
-
-    if (mode === "guided") {
-      return {
-        ...draft,
-        [key]: { mode: "append", add: [...pinned], exclude: excluded }
+      if (activePool.length > 0) {
+        result[key] = { mode: "replace", add: activePool, exclude: excluded };
+      }
+    } else if (mode === "guided") {
+      result[key] = {
+        mode: "append",
+        add: [...pinned],
+        exclude: excluded
       };
     }
-
-    return draft;
-  }, {});
+  }
+  return result;
 };
 
+// WHAT: Pure state transition toggling the locked status of a world by index.
+// WHY: Locked worlds are protected from being discarded or overwritten during automated prompt re-analysis.
 export const toggleWorldLock = (worlds, index) =>
   worlds.map((world, idx) => (idx === index ? { ...world, locked: !world.locked } : world));
 
+// WHAT: Pure state transition toggling the active status of a world by index.
+// WHY: Controls whether the world's signature terms are pooled into the active visual vocabulary.
 export const setWorldActive = (worlds, index, active) =>
   worlds.map((world, idx) => (idx === index ? { ...world, active: Boolean(active) } : world));
 
+// WHAT: Pure state transition cycling a term's chip state between default (0), pinned (1), and excluded (2).
+// WHY: Updates keyword lifecycle rules without mutating the input pools array in place.
 export const setPoolChipState = (pools, poolIdx, term, nextState) =>
   pools.map((pool, idx) => {
     if (idx !== poolIdx) return pool;
@@ -628,6 +773,8 @@ export const setPoolChipState = (pools, poolIdx, term, nextState) =>
     return { ...pool, chipStates: { ...currentChipStates, [term]: nextState } };
   });
 
+// WHAT: Pure state transition adding a custom or catalog keyword to a pool and pinning it.
+// WHY: Injects bespoke director terminology into a visual dimension and marks it pinned so it is guaranteed to rotate.
 export const addTermToPool = (pools, poolIdx, rawTerm) => {
   const cleaned = String(rawTerm || "").trim();
   if (!cleaned) return pools;
@@ -649,8 +796,8 @@ export const addTermToPool = (pools, poolIdx, rawTerm) => {
   });
 };
 
-// The world list a draft was applied with: its saved list, or (drafts saved before 1.11.5) the defaults with the saved
-// active names switched on, plus any active world the defaults do not list.
+// WHAT: Restores and normalizes the worlds array from saved project state or legacy pre-1.11.5 drafts.
+// WHY: Guarantees backward compatibility when loading older project files that only stored active world names.
 export const restoreWorlds = (saved, defaults = DEFAULT_WORLDS) => {
   if (Array.isArray(saved?.worlds) && saved.worlds.length) return saved.worlds.map(w => ({ ...w }));
   if (!Array.isArray(saved?.activeWorlds)) return defaults.map(w => ({ ...w }));
@@ -662,6 +809,8 @@ export const restoreWorlds = (saved, defaults = DEFAULT_WORLDS) => {
   ];
 };
 
+// WHAT: Deep clones a pools array and nested chip states dictionaries.
+// WHY: Prevents UI interactions in the workbench from accidentally mutating global state or defaults.
 const clonePools = (pools) =>
   pools.map(pool => ({
     ...pool,
@@ -669,13 +818,17 @@ const clonePools = (pools) =>
     chipStates: pool.chipStates ? { ...pool.chipStates } : {}
   }));
 
+// WHAT: Initializes the interactive Thematic Worlds workspace, wiring UI events and mounting view components.
+// WHY: Acts as the imperative shell boundary for this module: isolates DOM mutation, user click/input events,
+// and async catalog fetching while delegating all computational logic and markup generation to pure functions.
 export function initVocabWorlds() {
   const container = $("#vocab-worlds-workspace");
   if (!container) return;
 
   let catalogCache = null;
 
-  // Local state container for the interactive view, initialized from appState if present
+  // WHAT: Local mutable state container for the interactive workspace session.
+  // WHY: Encapsulates draft adjustments (mode, slider, borrowed terms, pools) before the director applies them.
   const state = {
     mode: appState.thematicWorlds?.mode || "guided",
     slider: typeof appState.thematicWorlds?.slider === "number" ? appState.thematicWorlds.slider : 50,
@@ -687,7 +840,8 @@ export function initVocabWorlds() {
     )
   };
 
-  // Eagerly pre-load catalog so category dropdowns populate immediately
+  // WHAT: Pre-loads the full visual vocabulary catalog from the server.
+  // WHY: Populates catalog dropdowns so directors can immediately browse and add built-in category terms.
   loadVocabularyCatalog()
     .then((cat) => {
       catalogCache = cat;
@@ -712,6 +866,8 @@ export function initVocabWorlds() {
     });
   }
 
+  // WHAT: Renders and synchronizes all DOM sub-components against current local state.
+  // WHY: Provides an idempotent render cycle called after any state transition (mode change, lock, chip cycle).
   const updateView = () => {
     const isOff = state.mode === "off";
 
@@ -766,7 +922,9 @@ export function initVocabWorlds() {
     }
   };
 
-  // Wire mode switches, locks, chip cycling, and apply/reset actions
+  // WHAT: Centralized click handler using event delegation on the root workspace container.
+  // WHY: Efficiently routes user interactions (analysis, modes, locks, borrowing, chip cycling, saving, reset)
+  // without attaching hundreds of listeners to individual dynamic elements.
   container.addEventListener("click", event => {
     const processBtn = event.target.closest("#worlds-process-prompt-btn");
     if (processBtn) {
@@ -916,7 +1074,8 @@ export function initVocabWorlds() {
     }
   });
 
-  // Wire checkbox and dropdown changes
+  // WHAT: Handles input change events for world checkboxes and catalog item dropdown selections.
+  // WHY: Updates active world lists or pool membership directly as user form inputs change.
   container.addEventListener("change", event => {
     const check = event.target.closest(".worlds-cluster-check");
     if (check) {
@@ -944,7 +1103,8 @@ export function initVocabWorlds() {
     }
   });
 
-  // Wire slider input
+  // WHAT: Live slider handler updating juxtaposition bars as the user drags.
+  // WHY: Rerenders only the juxtaposition bars and multiplier readout for 60fps responsive interaction.
   const slider = $("#worlds-juxtaposition-slider");
   if (slider) {
     slider.oninput = () => {
@@ -964,6 +1124,8 @@ export function initVocabWorlds() {
   const keywordWorkspace = $("#vocab-category-workspace");
   const worldsWorkspace = $("#vocab-worlds-workspace");
 
+  // WHAT: Switches view from the 12 keyword category tables to the Thematic Worlds workspace.
+  // WHY: Smoothly toggles panels, tab active classes, and pre-populates prompt input from active direction.
   const showWorldsView = () => {
     if (keywordWorkspace) keywordWorkspace.hidden = true;
     if (worldsWorkspace) worldsWorkspace.hidden = false;
@@ -989,6 +1151,8 @@ export function initVocabWorlds() {
     updateView();
   };
 
+  // WHAT: Switches view from Thematic Worlds back to the 12 keyword category tables.
+  // WHY: Allows the director to inspect or modify granular category tables directly.
   const showKeywordView = () => {
     if (keywordWorkspace) keywordWorkspace.hidden = false;
     if (worldsWorkspace) worldsWorkspace.hidden = true;

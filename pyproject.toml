@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mondo-music-video"
-version = "1.12.3"
+version = "1.12.4"
 description = "Turn a song into a music video. Beat-aware shot planning, LLM-written prompts, local or hosted rendering, actors that dance, lip-sync and play instruments, Worlds, storyboards, and frame-exact assembly with your original audio. Agent-installable, with MCP tools and Open Actor/Prop Protocols."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -39,7 +39,7 @@ where = ["."]
 include = ["mmv*", "webapp*"]
 
 [tool.setuptools.package-data]
-webapp = ["*.html", "*.js", "*.css", "*.ico", "*.svg", "js/*.js", "vendor/wavesurfer/*.js", "vendor/wavesurfer/LICENSE", "vendor/wavesurfer/plugins/*.js"]
+webapp = ["*.html", "*.js", "*.css", "*.ico", "*.svg", "*.json", "js/*.js", "vendor/wavesurfer/*.js", "vendor/wavesurfer/LICENSE", "vendor/wavesurfer/plugins/*.js"]
 mmv = ["assets/props/*/manifest.json", "assets/props/*/references/*/*.png", "assets/props/README.md"]
 "mmv.engine" = ["config/*.json", "prompts/*.md", "workflows/*.json"]
 "mmv.engine.validators" = ["laya/*.py", "laya/*.md"]

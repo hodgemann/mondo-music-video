@@ -107,7 +107,9 @@ quality, so only set it when the user asks for it or the machine is memory-limit
 Visual vocabulary: `vocabulary_profile` selects `full`, `reduced_flashing` or a saved
 preset id; `custom_vocabulary` adds or removes entries per category for one video.
 Use `inspect_studio` kind `vocabularies` first. Saving a preset is free; deleting one
-needs the user's authorization (`confirm`).
+needs the user's authorization (`confirm`). `inspect_studio` kind `thematic-worlds`
+(CLI `thematic-worlds`) lists the extended curated World cards and their terms for
+a reviewed `custom_vocabulary` preview.
 A style may carry its own `vocabulary` (same shape as `custom_vocabulary`); `create_style`/`import_style` store it but it is never applied automatically. To use it, read it from `inspect_studio` kind `styles` and pass it as `custom_vocabulary` after the user agrees.
 Set `vocab_selection` to `contextual` (default `legacy`) to narrow the rotation tables deterministically to the song's direction and title before planning; `legacy` leaves the original draws unchanged.
 
@@ -268,6 +270,11 @@ review cost and start only with authorization. Poll status, list `storyboards`, 
 read `inspect_storyboard(run_id)` (CLI `storyboard-result RUN_ID`). Edit/reorder
 `panels: [{image, direction}]` before adding the result as `storyboard` with
 `enabled: true` to a video/ident preview. Modes are `narrative` (default) and `visual`.
+Optional `humanize: true` on an interpretation applies local
+prose cleanup, off by default. To clean existing panels, call
+`humanize_storyboard(panels)` (CLI `humanize-storyboard PANELS_JSON_FILE`), then
+review and edit the returned directions before using them. Keep the normal
+quote/start consent for interpretation and production.
 Text-only panels use empty image IDs. Inspect returned `storyboard.passages` timing
 before start. No automatic interpretation retry; recover completed results by run ID,
 and inspect logs before making another call. Inspect raw model output with

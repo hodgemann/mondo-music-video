@@ -78,7 +78,7 @@ class AgentClient:
             return json.load(response)
 
     def inspect(self, kind="status"):
-        if kind not in ("status", "version", "catalog", "actors", "instruments", "props", "opp-guide", "vision-guide", "oap-collection", "styles", "vocabularies", "vocabulary", "stems", "lyrics", "outputs", "settings", "update", "agreements", "worlds", "storyboards", "quick-start"):
+        if kind not in ("status", "version", "catalog", "actors", "instruments", "props", "opp-guide", "vision-guide", "oap-collection", "styles", "vocabularies", "vocabulary", "thematic-worlds", "stems", "lyrics", "outputs", "settings", "update", "agreements", "worlds", "storyboards", "quick-start"):
             raise ValueError("Unknown inspection kind")
         guides = {"opp-guide": "/api/props/guide", "vision-guide": "/api/vision/guide"}
         result = self._json("GET", guides.get(kind, "/api/" + kind))
@@ -94,6 +94,10 @@ class AgentClient:
 
     def storyboard_result(self, run_id, raw_response=False):
         return self._json("GET", "/api/storyboards/" + urllib.parse.quote(run_id, safe="") + ("/response" if raw_response else ""))
+
+    def humanize_storyboard(self, panels):
+        """Preview local prose cleanup of panel directions; edit/review before using the result."""
+        return self._json("POST", "/api/storyboards/humanize", panels)
 
     def detect_lyrics(self, song, model="large-v3", use_vocals=True):
         """Start free local lyrics detection for an uploaded song; poll status, the lines arrive in its result."""
@@ -512,7 +516,9 @@ def main(argv=None):
     storyboard_parser = sub.add_parser("storyboard-result")
     storyboard_parser.add_argument("run_id")
     storyboard_parser.add_argument("--raw-response", action="store_true")
-    for name in ("worlds", "status", "version", "catalog", "actors", "instruments", "props", "opp-guide", "vision-guide", "oap-collection", "styles", "vocabularies", "vocabulary", "stems", "lyrics", "outputs", "settings", "update", "agreements", "storyboards", "quick-start", "cancel"):
+    humanize_parser = sub.add_parser("humanize-storyboard", help="Preview cleaned panel directions from a JSON array file")
+    humanize_parser.add_argument("panels_file")
+    for name in ("worlds", "status", "version", "catalog", "actors", "instruments", "props", "opp-guide", "vision-guide", "oap-collection", "styles", "vocabularies", "vocabulary", "thematic-worlds", "stems", "lyrics", "outputs", "settings", "update", "agreements", "storyboards", "quick-start", "cancel"):
         sub.add_parser(name)
     reset_op = sub.add_parser("reset-operation")
     reset_op.add_argument("--purge-run", action="store_true", help="Delete the incomplete run folder")
@@ -648,6 +654,8 @@ def main(argv=None):
         client = AgentClient(args.url)
         if args.command == "storyboard-result":
             result = client.storyboard_result(args.run_id, args.raw_response)
+        elif args.command == "humanize-storyboard":
+            result = client.humanize_storyboard(json.loads(Path(args.panels_file).read_text(encoding="utf-8")))
         elif args.command == "upload":
             result = client.upload(args.kind, args.path)
         elif args.command == "preview":

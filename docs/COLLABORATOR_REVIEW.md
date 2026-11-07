@@ -1,5 +1,20 @@
 # Collaborator review record
 
+## Fork `2389f58` reviewed for release 1.12.4 (2026-11-06)
+
+Last reviewed fork head: `0d29dcb`. New authored changes by [hellonearthis](https://github.com/hellonearthis): `f814ecf` (storyboard prose cleanup and direction guide), `2389f58` (performance changes); merge `265eda3` also brought our release 1.12.3 into the fork. Reviewed in an independent clone at `/tmp/mmv-fork-2389f58-review`; Claude Haiku 5.5 supplied a bounded read-only review of the source diff. Its patch omitted newly added files, which Codex inspected separately and covered with tests. Only compatible changes relative to our `630f3ee` base were considered.
+
+| Contribution | Decision and evidence |
+| --- | --- |
+| Optional prose cleanup | Adopted and corrected. `mmv/storyboard.py` defaults `humanize` to false and applies it only after the single consented interpretation response. The fork's trailing-clause rule could remove `lips sealed` after a comma, and its `testament to` and `delved into` replacements broke grammar. The shared Python cleanup now preserves a following clause and conjugates those examples. The browser's manual action calls the same local endpoint as `AgentClient`, CLI and MCP; it does not place another vision request. |
+| Extended thematic Worlds | Adopted eight new public cards and shipped matching JS/JSON data. The browser loads the JS; agents inspect the JSON through `/api/thematic-worlds` and choose `custom_vocabulary` in a preview. The library merge now deduplicates within the external list too. Packaging includes the JSON. |
+| Performance changes | Adopted the behavior-preserving expression and allocation changes outside protected files. The `panel_progress.js` control-group cache was omitted because it stored a DOM-derived list in mutable unit state and could go stale if the card body is rebuilt; its original traversal remains. Mock tests and syntax checks verify the adopted result; benchmark scope and numbers are recorded in `docs/VERIFICATION.md`. |
+| `mmv/lipsync.py` optimization | Adopted on the owner's follow-up. The owner clarified that lipsync mechanics added after the original core are outside the protected core; the approved singing text remains pinned and unchanged. Claude Haiku 5.5 independently checked the exact patch by reading and found the replacements equivalent; it ran no tests. The fork's precompiled patterns and `str.translate` path matched the previous `_words` and `_units` outputs on 400 generated inputs each, and the focused lipsync and protection tests passed. No real render was run, so visual quality was not compared. |
+| Fork merge-only `mmv/takes.py` and `mmv/writer_json.py` differences | Omitted. `takes.py` reintroduces a seed/index overload: a positional seed can pick the wrong passage or raise `IndexError`; current explicit `index, seed` callers and tests remain. `writer_json.py` accepts `divergent`, which the current validator does not emit (`contradicts_style` is its declared label); see the existing OpenSpec check. Both differences predate the new authored commits. |
+| Expanded storyboard architecture document | Adapted into the existing concise guide. The fork version includes machine-specific `file:///c:/...` links and unverified workflow statements. The cognitive pacing discussion was adapted in `docs/STUDIO_DIRECTION_PROMPTING.md` without those claims. |
+
+No private studio actors, styles, credentials or production artifacts were imported. No paid, GPU, Topaz, publication or push action was part of this review.
+
 ## Fork `0d29dcb` integrated (release 1.12.3, 2026-11-02)
 
 Previous reviewed head `7781545`. New commits by [hellonearthis](https://github.com/hellonearthis): `5c5b5b6` (narrative acts), `5cae552` (Dismiss / Purge & Start Fresh), `9853212` (H3 reference and subject tag normalizer), `20e62ee` and `0d29dcb` (studio direction guides). Reviewed in an isolated clone and a read-only Codex pass (`gpt-6.1-sol`, low effort; the model is the CLI request, not a confirmed answer).

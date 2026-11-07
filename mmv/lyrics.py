@@ -159,7 +159,7 @@ def group_lines(words):
                         or word['end'] - current[0]['start'] > MAX_LINE_SECONDS):
             close()
         current.append(word)
-        if re.search(r'[.!?]$', word['word']) and len(current) >= 3:
+        if word['word'].endswith(('.', '!', '?')) and len(current) >= 3:
             close()
     close()
     kept = []
@@ -172,10 +172,13 @@ def group_lines(words):
     return kept
 
 
+_NORM_WORDS = re.compile(r"[^\W_]+(?:'[^\W_]+)*")
+
+
 def _norm(text):
     """Lower-cased word tokens in any script: apostrophes inside words stay, curly quotes count as apostrophes, hyphens split."""
     text = unicodedata.normalize('NFKC', text).casefold().replace('\u2019', "'").replace('\u2018', "'")
-    return re.findall(r"[^\W_]+(?:'[^\W_]+)*", text)
+    return _NORM_WORDS.findall(text)
 
 
 STOPWORDS = frozenset('the a an and or of to i you it in on my me we is so but at be am are was for with oh la na yeah'.split())
@@ -185,6 +188,10 @@ INSTRUMENTAL = re.compile(r"\b(instrumental\w*|solo|interlude|break(?!\s*down)|d
                           r"sax\w*|trumpet|violin|keys|organ|flute)\b")
 VOICE = re.compile(r"\b(vocals?|voice|sing\w*|choir|spoken|rap|whisper\w*|chant\w*)\b")
 REPEAT = re.compile(r"\(?\s*(?:x|\u00d7)\s*\d+\s*\)?\s*$", re.I)
+BRACKETS = re.compile(r'\[([^\[\]]*)\]')
+SECTION_PAREN = re.compile(r'\(\s*' + SECTION.pattern + r'[^()]*\)', re.I)
+BACKING_PARENS = re.compile(r'(\s*\([^()]*\)\s*)+')
+PARENS = re.compile(r'[()]')
 MAX_TOKENS = 8000
 
 
@@ -204,8 +211,8 @@ def parse_lyrics(text):
             .replace('\u2019', "'").replace('\u2018', "'").replace('*', ''))
     entries, section, kind = [], None, 'sung'
     for raw in text.splitlines():
-        labels = [' '.join(label.strip().lower().split()) for label in re.findall(r'\[([^\[\]]*)\]', raw)]
-        rest = re.sub(r'\[[^\[\]]*\]', ' ', raw).replace('[', ' ').replace(']', ' ')
+        labels = [' '.join(label.strip().lower().split()) for label in BRACKETS.findall(raw)]
+        rest = BRACKETS.sub(' ', raw).replace('[', ' ').replace(']', ' ')
         rest = ' '.join(rest.split())
         accepted = [label for label in labels if label and (not rest or SECTION.search(label))]
         lead = raw.lstrip().startswith('[') or not rest
@@ -216,14 +223,14 @@ def parse_lyrics(text):
         if lead:
             section, kind = next_section, next_kind
         rest = REPEAT.sub('', rest).strip()
-        if rest and re.fullmatch(r'\(\s*' + SECTION.pattern + r'[^()]*\)', rest, re.I):
+        if rest and SECTION_PAREN.fullmatch(rest):
             rest = ''                                       # "(Chorus)" is a direction, not words
         if rest:
             flat = rest
             while '((' in flat or '))' in flat:
                 flat = flat.replace('((', '(').replace('))', ')')
-            backing = bool(re.fullmatch(r'(\s*\([^()]*\)\s*)+', flat))
-            inner = ' '.join(re.sub(r'[()]', ' ', rest).split())
+            backing = bool(BACKING_PARENS.fullmatch(flat))
+            inner = ' '.join(PARENS.sub(' ', rest).split())
             if inner:
                 entries.append({'text': inner, 'section': section, 'kind': kind, 'backing': backing})
         if not lead:

@@ -37,6 +37,7 @@ include CLAUDE.md tools/ask_peer.py
 exclude docs/TEAM_STATUS.md
 
 recursive-include webapp/vendor *.js LICENSE
+include webapp/thematic-worlds-extended.json
 
 # Private worlds and their pending proposals
 prune data

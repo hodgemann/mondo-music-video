@@ -209,20 +209,32 @@ IDLE = re.compile(r'\b(rest\w*|idle\w*|hold\w*|still|paus\w*)\b', re.I)
 NEGATED = re.compile(r"\b(?:no|not|never|without|doesn't|don't|isn't|cannot|can't)\b[^,.;]*", re.I)
 CONTINUING = re.compile(r"\b(?:(?:does|do) not|doesn't|don't|never) stop(?:s)?\b|\bwithout (?:stopping|pausing)\b", re.I)
 ABSENT = re.compile(r'\b(off[ -]?screen|absent|out of (?:the )?frame)\b', re.I)
+_QUOTED_INLINE = re.compile(r'"[^"\n]*"|“[^”]*”')
+_SHOT_GUITAR_ISSUE = re.compile(r'Shot (\d+): (<Subject \d+>) must visibly play the guitar:')
+_SHOT_CONNECT = re.compile(r'Shot \d+: connect ')
 
 
 def player_clauses(body, performers):
     """Attribute independent clauses to their named actor; lyrics and other players cannot supply an action."""
-    body = re.sub(r'"[^"\n]*"|“[^”]*”', ' ', body)
+    body = _QUOTED_INLINE.sub(' ', body)
     targets = [[p['subject'], p.get('picture_tag'), p['display_name']] for p in performers]
     pattern = '|'.join(re.escape(ref) if ref.startswith('<') else r'(?<!\w)' + re.escape(ref) + r'(?!\w)'
                        for refs in targets for ref in refs if ref)
     body = re.sub(r'(?:[,;]\s*|\b(?:and|while|whereas)\s+)(?=(?:' + pattern + '))', '\n', body, flags=re.I)
     clauses = [s.strip() for s in re.split(r'(?<=[.!?])\s+|\n', body) if s.strip()]
+    target_matchers = [
+        [
+            (ref, None) if ref.startswith('<') else (ref, re.compile(r'(?<!\w)' + re.escape(ref) + r'(?!\w)', re.I))
+            for ref in refs if ref
+        ]
+        for refs in targets
+    ]
     out, previous = [[] for _ in targets], []
     for clause in clauses:
-        named = [index for index, refs in enumerate(targets) if any(ref and (ref in clause if ref.startswith('<') else re.search(
-                 r'(?<!\w)' + re.escape(ref) + r'(?!\w)', clause, re.I)) for ref in refs)]
+        named = [
+            index for index, matchers in enumerate(target_matchers)
+            if any(ref in clause if pat is None else bool(pat.search(clause)) for ref, pat in matchers)
+        ]
         if not named and PRONOUN_START.match(clause) and len(previous) == 1:
             named = previous
         for index in named:
@@ -263,7 +275,7 @@ def repair_shot_bodies(shot_bodies, segment, passage, performance, tags):
     performers = job(passage, performance, tags)['performers']
     before = problems('', shot_bodies, segment, passage, performance, tags)
     candidates = {int(match.group(1)): match.group(2) for issue in before
-                  if (match := re.match(r'Shot (\d+): (<Subject \d+>) must visibly play the guitar:', issue))}
+                  if (match := _SHOT_GUITAR_ISSUE.match(issue))}
     if not candidates:
         return list(shot_bodies), []
     repaired, edits = list(shot_bodies), []
@@ -300,7 +312,7 @@ def is_blocking(problem):
     """Prompt integrity stops a prompt: every shot described, the player present, and the instrument reference cited so the renderer
     uses it. Whether the playing is convincingly worded is advice for Laya's review, never a rewrite."""
     return (problem.startswith(('Instrument performance requires', 'Instrument player '))
-            or bool(re.match(r'Shot \d+: connect ', problem)))
+            or bool(_SHOT_CONNECT.match(problem)))
 
 
 def problems(prompt, shot_bodies, segment, passage, performance, tags):
@@ -316,7 +328,7 @@ def problems(prompt, shot_bodies, segment, passage, performance, tags):
     bound = set()
     for shot, body in zip(segment.shots, shot_bodies):
         by_player = player_clauses(body, performers)
-        unquoted = re.sub(r'"[^"\n]*"|“[^”]*”', ' ', body)
+        unquoted = _QUOTED_INLINE.sub(' ', body)
         for clause in re.split(r'(?<=[.!?])\s+|\n', unquoted):
             if PRONOUN_START.match(clause.strip()) and not any(clause.strip() in own for own in by_player):
                 if any(ACTION[p['instrument']].search(clause) and CONTACT[p['instrument']].search(clause) for p in performers):

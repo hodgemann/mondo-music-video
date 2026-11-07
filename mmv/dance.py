@@ -259,6 +259,7 @@ NEGATION = re.compile(r"\b(not|never|no|without|nor|neither|cannot|can't|doesn't
 MOUTH = re.compile(r"\b(lips?|jaws?|mouths?|snouts?|facial|lip-sync|babbling|beaks?|muzzles?)\b", re.I)
 PLURAL_START = re.compile(r"^(they|their|them)\b", re.I)
 _QUOTED = re.compile(r"\"[^\"]*\"|\u201c[^\u201d]*\u201d|(?<!\w)'[^']*'(?!\w)")
+_WITHOUT_STOPPING = re.compile(r'\b(?:without|no) (?:stopping|paus\w*)\b', re.I)
 MOVEMENT_WORDS = {
     'vertical': re.compile(r'\b(bounc\w*|jump\w*|hop\w*|crouch\w*|squat\w*|rais\w*|lower\w*|vertical\w*|flex\w*|extend\w*|'
                            r'ris(?:e|es|ing)|rose|fall\w*|sink\w*|dip\w*|pulse\w*|spring\w*|up and down)\b', re.I),
@@ -286,6 +287,11 @@ def _dancer_sentences(body, passage, independent=False):
     says the dancer is absent or off screen makes no one visible."""
     keys = [[r for r in (d.get('picture_tag'), f"<Subject {d['subject']}>") if r] for d in passage['dancers']]
     names = [d.get('display_name') for d in passage['dancers'] if d.get('display_name')]
+    name_patterns = [
+        re.compile(r'(?<!\w)' + re.escape(d['display_name']) + r'(?!\w)', re.I)
+        if d.get('display_name') else None
+        for d in passage['dancers']
+    ]
     if independent:
         targets = '|'.join(re.escape(r) for refs in keys for r in refs)
         targets += ''.join('|(?<!\\w)' + re.escape(name) + '(?!\\w)' for name in names)
@@ -296,15 +302,14 @@ def _dancer_sentences(body, passage, independent=False):
         if not shown:
             continue
         named = [i for i, refs in enumerate(keys) if any(r in sentence for r in refs)
-                 or (passage['dancers'][i].get('display_name') and re.search(
-                     r'(?<!\w)' + re.escape(passage['dancers'][i]['display_name']) + r'(?!\w)', sentence, re.I))]
+                 or (name_patterns[i] is not None and name_patterns[i].search(sentence))]
         if not named and previous and PRONOUN_START.match(sentence):
             named = previous if len(previous) == 1 or PLURAL_START.match(sentence) else []
         previous = named
         if OUT.search(sentence):
             continue                                       # absent or off screen: not visible because of this sentence
         for i in named:
-            action = re.sub(r'\b(?:without|no) (?:stopping|paus\w*)\b', '', shown, flags=re.I) if independent else shown
+            action = _WITHOUT_STOPPING.sub('', shown) if independent else shown
             out[i].append((shown, not NEGATION.search(action)))      # a negated sentence shows the dancer but is no action
     return out
 

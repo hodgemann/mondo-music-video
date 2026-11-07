@@ -26,8 +26,8 @@ def create_server(base_url=None):
             raise ToolError(str(exc)) from None
 
     @server.tool(annotations=ToolAnnotations(read_only_hint=True))
-    def inspect_studio(kind: Literal["status", "version", "catalog", "actors", "instruments", "props", "opp-guide", "vision-guide", "oap-collection", "styles", "vocabularies", "vocabulary", "stems", "lyrics", "outputs", "settings", "update", "agreements", "worlds", "storyboards", "quick-start"] = "status") -> dict[str, Any]:
-        """Read local app status, capabilities, actors, styles, vocabularies, outputs, role agreements, settings (no secret values), or a random one-click "quick-start" plan to merge into a preview_production request."""
+    def inspect_studio(kind: Literal["status", "version", "catalog", "actors", "instruments", "props", "opp-guide", "vision-guide", "oap-collection", "styles", "vocabularies", "vocabulary", "thematic-worlds", "stems", "lyrics", "outputs", "settings", "update", "agreements", "worlds", "storyboards", "quick-start"] = "status") -> dict[str, Any]:
+        """Read local app status, capabilities, actors, styles, vocabularies, extended thematic-worlds, outputs, role agreements, settings (no secret values), or a random one-click "quick-start" plan to merge into a preview_production request."""
         return {"kind": kind, "data": invoke(client.inspect, kind)}
 
     @server.tool()
@@ -70,6 +70,11 @@ def create_server(base_url=None):
         Preview returns per-shot alignment. An ident may also set ident_all_references true (renderer limits apply).
         """
         return invoke(client.storyboard_result, run_id, raw_response)
+
+    @server.tool(annotations=ToolAnnotations(read_only_hint=True))
+    def humanize_storyboard(panels: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Preview local prose cleanup for up to 24 storyboard panels. Review and edit directions before using them in a production preview."""
+        return invoke(client.humanize_storyboard, panels)
 
     @server.tool()
     def preview_production(request: dict) -> dict[str, Any]:

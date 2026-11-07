@@ -1,4 +1,39 @@
-# Verification — 1.12.3
+# Verification — 1.12.4
+
+## 1.12.4 — Storyboard cleanup, thematic Worlds and performance
+
+Focused mock checks: 57 tests and 8 subtests passed for storyboard interpretation,
+the local cleanup API, AgentClient/CLI/MCP discovery, thematic Worlds, vector
+calibration and protected-scheme pins. The browser and agent interfaces expose
+the same cleanup result; malformed panel counts are rejected. The eight new
+World cards match between shipped JS and JSON. JavaScript syntax checks passed.
+The final full suite passed: **875 tests and 141 subtests**. A headless Firefox
+check loaded the live 1.12.4 app, imported all 18 thematic Worlds, and used
+**Humanize directions** on a text panel while preserving `lips sealed`. The
+served UI returned HTTP 200, and the live `/api/version` returned 1.12.4.
+A local wheel build included the JS, JSON and Python cleanup module and excluded
+private data, `api-profiles.json`, `docs/TEAM_STATUS.md` and collaboration reports.
+After restoring the original panel-control traversal, its focused Chromium test
+and the Firefox check passed again; `git diff --check` was clean.
+
+On this machine, a synthetic 100-World by 64-dimension distance-calibration
+benchmark (median of five runs) took 0.1625 s before the fork change and 0.0051 s
+after it (31.9× faster). The largest raw distance difference was 2.22e-16.
+This measures the numerical core on synthetic vectors, not end-to-end video
+generation or typical app latency. No real render or paid call was used.
+
+Lipsync follow-up: 400 deterministic shot bodies and 400 word strings produced
+identical `_units` and `_words` outputs before and after the fork's helper edit.
+Median of five runs on that small corpus: `_units` 0.0153 s before and 0.0149 s
+after; `_words` 0.0016 s before and 0.0015 s after. These small differences do
+not establish an end-to-end speed gain. Focused lipsync, original-engine and
+protection tests passed (36 tests, 28 subtests); no real before/after render was
+run. The approved singing wording and protection pins were unchanged. The full
+suite was rerun after this edit and passed again: **875 tests and 141 subtests**.
+The restarted app served 1.12.4 and HTTP 200, and `/api/integrity` returned
+`{"intact": true, "changed": [], "notice": null}`. A freshly built 1.12.4 wheel
+contains the lipsync edit and the new storyboard/World files, without private
+data or collaboration state.
 
 ## 1.12.3
 

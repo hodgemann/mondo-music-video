@@ -1011,9 +1011,12 @@ const loadThumbnail = video => new Promise(resolve => {
 
 // A few at a time, so the list never holds most of the browser's connections (see 1.10.12).
 const loadThumbnails = videos => {
-  const queue = [...videos];
+  let nextIndex = 0;
   return Promise.all(Array.from({ length: THUMBNAIL_SLOTS }, async () => {
-    for (let video; (video = queue.shift());) await loadThumbnail(video);
+    while (nextIndex < videos.length) {
+      const video = videos[nextIndex++];
+      if (video) await loadThumbnail(video);
+    }
   }));
 };
 

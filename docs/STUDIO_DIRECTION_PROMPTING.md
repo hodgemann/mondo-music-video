@@ -474,3 +474,23 @@ The **Worlds** panel enables rich environmental design beyond single-genre stere
 * **World Presets & Guided Sliders**:
   - Use the World editor to define spatial consistency: interior vs. exterior transitions, material palettes (e.g. brushed titanium, wet asphalt, rusted corrugated iron), and dominant color temperatures.
   - The writer LLM weaves these environmental anchors into every passage prompt, while the vocabulary engine injects varied micro-mechanisms (steam vents, puddles, electrical arcs) to prevent visual repetition across takes.
+
+## Cognitive pacing and visual subtext
+
+Give adjacent musical passages different visual work to do. An opening can establish
+a place and a physical problem; a chorus can change the character's position or
+response to that problem; a later passage can reveal a consequence. Check the
+planned shot times before using a storyboard so the turn lands near the intended
+musical moment. The app distributes panels across existing shots; it does not
+retime the song to fit the panels.
+
+Use visible action to carry a feeling: a hand missing the door latch, a jacket
+catching on a railing, a prop moved out of reach. Camera distance and light can
+shift with the music, but a new look needs a reason in the scene. A restrained
+verse and a contrasting chorus are one possible arc, not a required template.
+
+When reviewing a direction, keep details that affect a character's action,
+space, camera or light. Trim decorative phrases that add no visible instruction.
+The optional storyboard cleanup helps with common clichés, but inspect its
+output because a phrase may carry useful direction. Silent mouths remain the
+default unless an approved singing mode applies.

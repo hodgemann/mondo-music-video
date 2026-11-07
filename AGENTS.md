@@ -122,12 +122,23 @@ verify the assets appear in the app. Never import other local/private assets.
   functional style alone is not evidence of faster execution or lower memory use.
 - Apply the same style in helper assignments and review it before integration.
 
+## Historical baseline
+
+Never use Mondo Music Video v0.1 as evidence or a baseline for any decision. It is not a reliable
+record of what the owner first built. This applies to design, feature scope,
+protected-core boundaries, compatibility, migrations, quality checks, tests,
+reviews and release decisions. Use the current source and owner-verified history
+instead. Codex and Claude must carry this rule into peer assignments and handoffs.
+
 ## Protected prompting scheme (read before editing; applies to forks too)
 
 Mondo's writer and ident prompts, the sealed-lips scheme (rule text, closing phrase, validators), the planning and schema code,
 the approved singing wording and the quality rules are delicate: they were tuned over months of real renders, and an edit that
 looks harmless can make every video worse. The full list and procedure are in
 [docs/PROMPT_SCHEME_PROTECTION.md](docs/PROMPT_SCHEME_PROTECTION.md); the fingerprints are in `mmv/protected_scheme.py`.
+The later lipsync mechanics in `mmv/lipsync.py` are outside the original protected
+core. Do not treat every edit to that file as a protected prompt change; the
+explicitly pinned singing wording still has its own safeguard.
 
 Before any change that touches them, **stop and warn the person in plain words** that this is delicate, that videos may fall below
 the Mondo standard and that the app will show a warning banner; offer an opt-in alternative that leaves the originals as the
@@ -209,6 +220,8 @@ before applying `storyboard.enabled` to a video/ident. Keep storyboard images se
 from actor references, preserve musical timing and protected prompts, and bind saved
 alignment to prompts for recovery. GUI, CLI and MCP parity is documented in
 [docs/STORYBOARDS.md](docs/STORYBOARDS.md). Do not publish private boards or uploads.
+Optional storyboard prose cleanup is off by default. Agents can request it during
+interpretation or preview cleanup of existing panels, then review the text before use.
 
 ## Passage takes
 

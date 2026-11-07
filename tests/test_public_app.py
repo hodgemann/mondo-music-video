@@ -438,9 +438,9 @@ class PublicAppTests(unittest.TestCase):
         import tomllib
         root = Path(__file__).resolve().parents[1]
         project = tomllib.loads((root / "pyproject.toml").read_text())
-        self.assertEqual(api_version()["version"], "1.12.3")
+        self.assertEqual(api_version()["version"], "1.12.4")
         self.assertEqual(project["project"]["version"], MGL_APP_VERSION)
-        self.assertIn("1.12.3", (root / "README.md").read_text())
+        self.assertIn("1.12.4", (root / "README.md").read_text())
         self.assertEqual(self.client.get("/api/version").json(), api_version())
 
     def test_quick_start_button_dialog_and_endpoint(self):

@@ -65,8 +65,11 @@ def _read_or_none(path: Path):
         return None
 
 
+_IDENTIFIER_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}\Z")
+
+
 def identifier(value: str) -> str:
-    if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,63}", value):
+    if not _IDENTIFIER_RE.match(value):
         raise ValueError("Use 1–64 lowercase letters, numbers, underscores or hyphens")
     return value
 

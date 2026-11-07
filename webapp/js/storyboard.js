@@ -18,7 +18,12 @@ export function storyboardFromForm(form, request) {
   const board = read(form);
   if (form.elements.storyboard_enabled.checked && (!board.panels.length || board.panels.some(p => !p.direction.trim())))
     throw new Error('Interpret the storyboard or write a direction for every panel before using it');
-  request.storyboard = form.elements.storyboard_enabled.checked ? {...board, enabled: true, mode: form.elements.storyboard_mode.value} : {};
+  request.storyboard = form.elements.storyboard_enabled.checked ? {
+    ...board,
+    enabled: true,
+    mode: form.elements.storyboard_mode.value,
+    humanize: Boolean(form.elements.storyboard_humanize?.checked)
+  } : {};
   for (const key of Object.keys(request)) if (key.startsWith('storyboard_')) delete request[key];
   if (request.kind === 'ident') request.ident_all_references = form.elements.ident_all_references.checked;
 }
@@ -98,6 +103,7 @@ export function initStoryboards() {
       <p>Guide the sequence with ordered panels. Narrative follows action and mood; Visual follows composition and framing. Your cast keeps its identity.</p>
       <label class="check"><input type="checkbox" name="storyboard_enabled"> Use this storyboard</label>
       <label>Interpretation<select name="storyboard_mode"><option value="narrative">Narrative</option><option value="visual">Visual direction</option></select></label>
+      <label class="check"><input type="checkbox" name="storyboard_humanize"> Humanize directions (strip AI clichés)</label>
       <input type="hidden" name="storyboard_draft" value='{"images":[],"panels":[]}'>
       <label>Add storyboard images (up to 24)<input class="storyboard-files" type="file" accept="image/*" multiple data-max="24"><small class="file-drop-hint">Choose files or drop up to 24 files here</small><small class="file-drop-error" role="alert"></small></label>
       <p class="storyboard-images muted"></p><div class="storyboard-actions"></div>
@@ -121,11 +127,18 @@ export function initStoryboards() {
     actions.append(button('Add text panel', () => {
       const board = read(form); if (board.panels.length >= 24) throw new Error('Use at most 24 panels');
       save(form, appendTextPanel(board)); render(form);
+    }), button('Humanize directions', async () => {
+      const current = read(form);
+      if (!current.panels.length) throw new Error('No panels to humanize');
+      const panels = await json('/api/storyboards/humanize', current.panels);
+      save(form, {...current, panels});
+      render(form);
+      notice('Humanized panel directions: stripped synthetic clichés and throat-clearing.');
     }), button('Preview interpretation', async () => {
       if (form.dataset.storyboardPending) throw new Error('Wait for uploads to finish');
       const board = read(form);
       const request = {kind: 'storyboard', title: form.elements.title.value, direction: form.elements.direction.value,
-        storyboard: {mode: form.elements.storyboard_mode.value, images: board.images}};
+        storyboard: {mode: form.elements.storyboard_mode.value, humanize: Boolean(form.elements.storyboard_humanize?.checked), images: board.images}};
       showQuote(request, await json('/api/quote', request));
     }), button('Clear storyboard', () => clearStoryboard(form)));
     section.querySelector('.storyboard-result-actions').append(button('Refresh interpretations', refreshStoryboards), button('Load for review', async () => {
